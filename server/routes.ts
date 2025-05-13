@@ -286,31 +286,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API endpoint to create database schema
   apiRouter.post("/create-schema", async (req, res) => {
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const { Pool } = require('pg');
-      
-      // Read the SQL schema file
-      const schemaPath = path.join(process.cwd(), 'migrations', 'initial-schema.sql');
-      console.log('Attempting to read schema file at:', schemaPath);
-      
-      const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
-      
-      // Create a database connection
-      console.log('Connecting to database with URL:', process.env.DATABASE_URL?.substring(0, 20) + '...');
-      const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
+      import('fs').then(async (fs) => {
+        const { join } = await import('path');
+        const { Pool } = await import('pg');
+        
+        // Read the SQL schema file
+        const schemaPath = join(process.cwd(), 'migrations', 'initial-schema.sql');
+        console.log('Attempting to read schema file at:', schemaPath);
+        
+        const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
+        
+        // Create a database connection
+        console.log('Connecting to database with URL:', process.env.DATABASE_URL?.substring(0, 20) + '...');
+        const pool = new Pool({
+          connectionString: process.env.DATABASE_URL,
+        });
+        
+        // Execute the schema SQL
+        console.log('Executing schema SQL...');
+        await pool.query(schemaSQL);
+        
+        // Close the connection
+        await pool.end();
+        
+        console.log('Schema created successfully!');
+        res.status(200).json({ success: true, message: 'Schema created successfully' });
       });
-      
-      // Execute the schema SQL
-      console.log('Executing schema SQL...');
-      await pool.query(schemaSQL);
-      
-      // Close the connection
-      await pool.end();
-      
-      console.log('Schema created successfully!');
-      res.status(200).json({ success: true, message: 'Schema created successfully' });
     } catch (error) {
       console.error('Failed to create schema:', error);
       res.status(500).json({ 

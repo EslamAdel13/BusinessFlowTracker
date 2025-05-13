@@ -257,10 +257,11 @@ export const useProjectStore = create<ProjectState>()(
     updatePhaseStatus: async (phase) => {
       try {
         let status = phase.status;
+        const progress = phase.progress || 0;
         
-        if (phase.progress === 100) {
+        if (progress === 100) {
           status = 'completed';
-        } else if (phase.progress > 0) {
+        } else if (progress > 0) {
           status = 'in_progress';
         } else if (isOverdue(phase.endDate)) {
           status = 'overdue';
