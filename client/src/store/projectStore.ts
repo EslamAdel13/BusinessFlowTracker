@@ -27,9 +27,33 @@ interface ProjectState {
   updatePhaseStatus: (phase: Phase) => Promise<void>;
 }
 
+// Load initial projects from localStorage if available
+const loadLocalProjects = (): Project[] => {
+  if (typeof window === 'undefined') return [];
+  
+  try {
+    const savedProjects = localStorage.getItem('projectsync_projects');
+    return savedProjects ? JSON.parse(savedProjects) : [];
+  } catch (e) {
+    console.error('Failed to load projects from localStorage:', e);
+    return [];
+  }
+};
+
+// Save projects to localStorage
+const saveLocalProjects = (projects: Project[]) => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    localStorage.setItem('projectsync_projects', JSON.stringify(projects));
+  } catch (e) {
+    console.error('Failed to save projects to localStorage:', e);
+  }
+};
+
 export const useProjectStore = create<ProjectState>()(
   devtools((set, get) => ({
-    projects: [],
+    projects: loadLocalProjects(),
     isLoading: false,
     error: null,
     selectedProject: null,
@@ -43,11 +67,25 @@ export const useProjectStore = create<ProjectState>()(
           .select('*')
           .order('id', { ascending: true });
           
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching projects from Supabase:', error);
+          
+          // Use localStorage projects as fallback
+          const localProjects = loadLocalProjects();
+          console.log('Using local projects as fallback:', localProjects);
+          set({ projects: localProjects, isLoading: false });
+          return;
+        }
         
+        // Store in localStorage for offline access
+        saveLocalProjects(data);
         set({ projects: data, isLoading: false });
       } catch (error: any) {
+        console.error('Failed to fetch projects:', error);
+        // Use localStorage as fallback
+        const localProjects = loadLocalProjects();
         set({ 
+          projects: localProjects,
           isLoading: false, 
           error: error.message || 'Failed to fetch projects' 
         });
@@ -59,15 +97,7 @@ export const useProjectStore = create<ProjectState>()(
         console.log('Creating project with data:', project);
         set({ isLoading: true, error: null });
         
-        // Check if the projects table exists first
-        const { data: existingTables, error: tablesError } = await supabase
-          .from('information_schema.tables')
-          .select('table_name')
-          .eq('table_schema', 'public');
-          
-        console.log('Existing tables:', existingTables, 'Error:', tablesError);
-        
-        // Attempt to create the project
+        // Attempt to create the project in Supabase
         const { data, error } = await supabase
           .from('projects')
           .insert(project)
@@ -76,11 +106,32 @@ export const useProjectStore = create<ProjectState>()(
           
         if (error) {
           console.error('Project creation error:', error);
-          throw error;
+          
+          // Create a local project with an ID
+          const localProjects = loadLocalProjects();
+          const maxId = localProjects.length > 0 
+            ? Math.max(...localProjects.map(p => p.id)) 
+            : 0;
+          
+          const localProject = {
+            ...project,
+            id: maxId + 1,
+            createdAt: new Date().toISOString()
+          } as unknown as Project;
+          
+          console.log('Created local project:', localProject);
+          
+          // Save to localStorage and update state
+          const updatedProjects = [...get().projects, localProject];
+          saveLocalProjects(updatedProjects);
+          set({ projects: updatedProjects, isLoading: false });
+          return localProject;
         }
         
-        console.log('Project created successfully:', data);
+        console.log('Project created successfully in Supabase:', data);
         const projects = [...get().projects, data];
+        // Update localStorage
+        saveLocalProjects(projects);
         set({ projects, isLoading: false });
         return data;
       } catch (error: any) {
@@ -89,19 +140,27 @@ export const useProjectStore = create<ProjectState>()(
           isLoading: false, 
           error: error.message || 'Failed to create project' 
         });
-        
-        // Try to run our schema creation
+        // Even on error, create a local version
         try {
-          console.log('Attempting to create schema tables...');
-          const schemaResult = await fetch('/api/create-schema', {
-            method: 'POST',
-          });
-          console.log('Schema creation attempt result:', schemaResult);
-        } catch (schemaError) {
-          console.error('Schema creation failed:', schemaError);
+          const localProjects = loadLocalProjects();
+          const maxId = localProjects.length > 0 
+            ? Math.max(...localProjects.map(p => p.id)) 
+            : 0;
+          
+          const localProject = {
+            ...project,
+            id: maxId + 1,
+            createdAt: new Date().toISOString()
+          } as unknown as Project;
+          
+          const updatedProjects = [...get().projects, localProject];
+          saveLocalProjects(updatedProjects);
+          set({ projects: updatedProjects });
+          return localProject;
+        } catch (localError) {
+          console.error('Failed to create local project:', localError);
+          throw error;
         }
-        
-        throw error;
       }
     },
     
