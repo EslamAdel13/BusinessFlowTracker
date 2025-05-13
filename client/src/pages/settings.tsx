@@ -23,7 +23,7 @@ const Settings = () => {
   useEffect(() => {
     if (user) {
       setDisplayName(user.user_metadata?.full_name || '');
-      setRole(user.user_metadata?.role || '');
+      setRole(user.user_metadata?.role as string || '');
     }
   }, [user]);
   
