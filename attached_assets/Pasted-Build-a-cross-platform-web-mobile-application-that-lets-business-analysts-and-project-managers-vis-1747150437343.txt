@@ -1,0 +1,87 @@
+Build a cross-platform web & mobile application that lets business analysts and project managers visualize and manage multiple projects on one Gantt-style timeline.
+
+1. Core Data Model
+Projects
+
+id, name, description, ownerId, color
+
+Phases (belong to a project)
+
+id, projectId, name, startDate, endDate, deliverable, responsible, status (not_started | in_progress | completed | overdue), progress%
+
+Tasks (belong to a phase)
+
+id, phaseId, projectId, name, assignee, dueDate, status (todo | doing | done), priority
+
+2. Required Features
+Unified Gantt-style Timeline (Homepage)
+
+Horizontal time axis (months ↔ scrollable).
+
+Each project = a separate row with its phases rendered as colored bars spanning start–end dates.
+
+Bars display phase name; tooltip shows deliverable & responsible.
+
+Color-code by status.
+
+Clicking a bar opens a right-hand drawer with phase details + task list.
+
+Project & Phase CRUD
+
+“+ New Project” button opens modal to create a project.
+
+Inside each project row, “+ Phase” button appends a phase with default dates.
+
+Task Manager
+
+Drawer view lists tasks for the selected phase.
+
+Inline add/edit tasks; drag-to-reorder or simple priority dropdown.
+
+Filter “My Tasks” vs “All Tasks.”
+
+Deadline Reminders
+
+Visual badge for tasks/phases due ≤ 3 days.
+
+Overdue items turn red. (Email/Push optional; not MVP.)
+
+Responsive, Youthful UI
+
+Indigo-accent color palette; smooth fade/slide animations.
+
+Mobile: timeline collapses to vertical list with expandable phases.
+
+Upload company logo → use its dominant color as secondary accent.
+
+Authentication & Storage
+
+Email/password auth via Supabase.
+
+Row-level security: users see only their own or shared projects.
+
+Upcoming (Phase 2 – just scaffold hooks)
+
+Slack/Jira/Azure/Calendar integration placeholders.
+
+Share project via collaborator email list (table ProjectMembers).
+
+3. Tech Stack Guidance
+Frontend: React + Vite + Tailwind CSS (for fast Replit bundling).
+
+Gantt Rendering: start with custom Flexbox/SVG bars; structure so a library (e.g. frappe-gantt) can replace later.
+
+State Management: React Context or Zustand.
+
+Backend: Supabase (Postgres DB, auth, storage).
+
+Routing: React Router (web) + install PWA manifest for mobile install.
+
+4. Deliverables
+Working Replit project with login → unified timeline → CRUD flows.
+
+Seed script that inserts 2 sample projects, 3 phases each, and tasks for demo.
+
+README with future-integration notes and how to swap Gantt renderer.
+
+Ensure clean, commented code and modular components so additional features can be plugged in without refactor.
