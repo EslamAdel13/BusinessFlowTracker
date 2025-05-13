@@ -56,23 +56,51 @@ export const useProjectStore = create<ProjectState>()(
     
     createProject: async (project) => {
       try {
+        console.log('Creating project with data:', project);
         set({ isLoading: true, error: null });
+        
+        // Check if the projects table exists first
+        const { data: existingTables, error: tablesError } = await supabase
+          .from('information_schema.tables')
+          .select('table_name')
+          .eq('table_schema', 'public');
+          
+        console.log('Existing tables:', existingTables, 'Error:', tablesError);
+        
+        // Attempt to create the project
         const { data, error } = await supabase
           .from('projects')
           .insert(project)
           .select()
           .single();
           
-        if (error) throw error;
+        if (error) {
+          console.error('Project creation error:', error);
+          throw error;
+        }
         
+        console.log('Project created successfully:', data);
         const projects = [...get().projects, data];
         set({ projects, isLoading: false });
         return data;
       } catch (error: any) {
+        console.error('Project creation failed:', error);
         set({ 
           isLoading: false, 
           error: error.message || 'Failed to create project' 
         });
+        
+        // Try to run our schema creation
+        try {
+          console.log('Attempting to create schema tables...');
+          const schemaResult = await fetch('/api/create-schema', {
+            method: 'POST',
+          });
+          console.log('Schema creation attempt result:', schemaResult);
+        } catch (schemaError) {
+          console.error('Schema creation failed:', schemaError);
+        }
+        
         throw error;
       }
     },
