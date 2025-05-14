@@ -1,8 +1,8 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-// Use DATABASE_URL from environment
+// Use DATABASE_URL from environment (provided by Replit)
 const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
@@ -11,8 +11,10 @@ if (!DATABASE_URL) {
   );
 }
 
+// Create a PostgreSQL pool connection
 export const pool = new Pool({ 
   connectionString: DATABASE_URL,
 });
 
-export const db = drizzle({ client: pool, schema });
+// Create the drizzle database instance
+export const db = drizzle(pool, { schema });
