@@ -1,10 +1,12 @@
 import { 
-  User, InsertUser, 
-  Project, InsertProject, 
-  Phase, InsertPhase, 
-  Task, InsertTask,
-  ProjectMember, InsertProjectMember
+  users, User, InsertUser, 
+  projects, Project, InsertProject, 
+  phases, Phase, InsertPhase, 
+  tasks, Task, InsertTask,
+  projectMembers, ProjectMember, InsertProjectMember
 } from "@shared/schema";
+import { db } from './db';
+import { eq, and, or } from 'drizzle-orm';
 
 // Define the storage interface
 export interface IStorage {
@@ -45,389 +47,160 @@ export interface IStorage {
   removeProjectMember(projectId: number, userId: string): Promise<boolean>;
 }
 
-// Memory storage implementation
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private projects: Map<number, Project>;
-  private phases: Map<number, Phase>;
-  private tasks: Map<number, Task>;
-  private projectMembers: Map<number, ProjectMember>;
-  
-  userIdCounter: number;
-  projectIdCounter: number;
-  phaseIdCounter: number;
-  taskIdCounter: number;
-  memberIdCounter: number;
-  
-  constructor() {
-    this.users = new Map();
-    this.projects = new Map();
-    this.phases = new Map();
-    this.tasks = new Map();
-    this.projectMembers = new Map();
-    
-    this.userIdCounter = 1;
-    this.projectIdCounter = 1;
-    this.phaseIdCounter = 1;
-    this.taskIdCounter = 1;
-    this.memberIdCounter = 1;
-  }
-  
-  // User methods
+// Database implementation using Drizzle ORM
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-  
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username
-    );
-  }
-  
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email
-    );
-  }
-  
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
-  
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [newUser] = await db.insert(users).values(user).returning();
+    return newUser;
+  }
+
   async updateUser(id: number, data: Partial<User>): Promise<User | undefined> {
-    const user = await this.getUser(id);
-    if (!user) return undefined;
-    
-    const updatedUser = { ...user, ...data };
-    this.users.set(id, updatedUser);
+    const [updatedUser] = await db.update(users).set(data).where(eq(users.id, id)).returning();
     return updatedUser;
   }
-  
-  // Project methods
+
   async getProject(id: number): Promise<Project | undefined> {
-    return this.projects.get(id);
-  }
-  
-  async getProjectsByOwner(ownerId: string): Promise<Project[]> {
-    return Array.from(this.projects.values()).filter(
-      (project) => project.ownerId === ownerId
-    );
-  }
-  
-  async getSharedProjects(userId: string): Promise<Project[]> {
-    // Get all project IDs where this user is a member
-    const memberProjectIds = Array.from(this.projectMembers.values())
-      .filter(member => member.userId === userId)
-      .map(member => member.projectId);
-    
-    // Return all projects with these IDs
-    return Array.from(this.projects.values()).filter(
-      project => memberProjectIds.includes(project.id)
-    );
-  }
-  
-  async createProject(insertProject: InsertProject): Promise<Project> {
-    const id = this.projectIdCounter++;
-    const createdAt = new Date();
-    const project: Project = { ...insertProject, id, createdAt };
-    this.projects.set(id, project);
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
     return project;
   }
-  
-  async updateProject(id: number, data: Partial<Project>): Promise<Project | undefined> {
-    const project = await this.getProject(id);
-    if (!project) return undefined;
+
+  async getProjectsByOwner(ownerId: string): Promise<Project[]> {
+    return await db.select().from(projects).where(eq(projects.ownerId, ownerId));
+  }
+
+  async getSharedProjects(userId: string): Promise<Project[]> {
+    const memberProjects = await db.select({
+      projectId: projectMembers.projectId
+    }).from(projectMembers).where(eq(projectMembers.userId, userId));
     
-    const updatedProject = { ...project, ...data };
-    this.projects.set(id, updatedProject);
+    if (memberProjects.length === 0) return [];
+    
+    const projectIds = memberProjects.map(m => m.projectId);
+    // Use OR condition for each project ID
+    return await db.select().from(projects).where(
+      or(...projectIds.map(id => eq(projects.id, id)))
+    );
+  }
+
+  async createProject(project: InsertProject): Promise<Project> {
+    const [newProject] = await db.insert(projects).values(project).returning();
+    return newProject;
+  }
+
+  async updateProject(id: number, data: Partial<Project>): Promise<Project | undefined> {
+    const [updatedProject] = await db.update(projects).set(data).where(eq(projects.id, id)).returning();
     return updatedProject;
   }
-  
+
   async deleteProject(id: number): Promise<boolean> {
-    // Delete all phases and tasks associated with this project first
+    // First delete all phases and tasks associated with this project
     const projectPhases = await this.getPhasesByProject(id);
     for (const phase of projectPhases) {
       await this.deletePhase(phase.id);
     }
     
     // Delete project members
-    const members = await this.getProjectMembers(id);
-    for (const member of members) {
-      this.projectMembers.delete(member.id);
-    }
+    await db.delete(projectMembers).where(eq(projectMembers.projectId, id));
     
-    return this.projects.delete(id);
+    // Delete the project
+    await db.delete(projects).where(eq(projects.id, id));
+    return true;
   }
-  
-  // Phase methods
+
   async getPhase(id: number): Promise<Phase | undefined> {
-    return this.phases.get(id);
-  }
-  
-  async getPhasesByProject(projectId: number): Promise<Phase[]> {
-    return Array.from(this.phases.values()).filter(
-      (phase) => phase.projectId === projectId
-    );
-  }
-  
-  async createPhase(insertPhase: InsertPhase): Promise<Phase> {
-    const id = this.phaseIdCounter++;
-    const phase: Phase = { ...insertPhase, id };
-    this.phases.set(id, phase);
+    const [phase] = await db.select().from(phases).where(eq(phases.id, id));
     return phase;
   }
-  
+
+  async getPhasesByProject(projectId: number): Promise<Phase[]> {
+    return await db.select().from(phases).where(eq(phases.projectId, projectId));
+  }
+
+  async createPhase(phase: InsertPhase): Promise<Phase> {
+    const [newPhase] = await db.insert(phases).values(phase).returning();
+    return newPhase;
+  }
+
   async updatePhase(id: number, data: Partial<Phase>): Promise<Phase | undefined> {
-    const phase = await this.getPhase(id);
-    if (!phase) return undefined;
-    
-    const updatedPhase = { ...phase, ...data };
-    this.phases.set(id, updatedPhase);
+    const [updatedPhase] = await db.update(phases).set(data).where(eq(phases.id, id)).returning();
     return updatedPhase;
   }
-  
+
   async deletePhase(id: number): Promise<boolean> {
-    // Delete all tasks associated with this phase first
-    const phaseTasks = await this.getTasksByPhase(id);
-    for (const task of phaseTasks) {
-      this.tasks.delete(task.id);
-    }
+    // Delete all tasks in this phase first
+    await db.delete(tasks).where(eq(tasks.phaseId, id));
     
-    return this.phases.delete(id);
+    // Delete the phase
+    await db.delete(phases).where(eq(phases.id, id));
+    return true;
   }
-  
-  // Task methods
+
   async getTask(id: number): Promise<Task | undefined> {
-    return this.tasks.get(id);
-  }
-  
-  async getTasksByPhase(phaseId: number): Promise<Task[]> {
-    return Array.from(this.tasks.values())
-      .filter(task => task.phaseId === phaseId)
-      .sort((a, b) => a.priority - b.priority);
-  }
-  
-  async getTasksByProject(projectId: number): Promise<Task[]> {
-    return Array.from(this.tasks.values())
-      .filter(task => task.projectId === projectId)
-      .sort((a, b) => a.priority - b.priority);
-  }
-  
-  async getTasksByAssignee(assignee: string): Promise<Task[]> {
-    return Array.from(this.tasks.values())
-      .filter(task => task.assignee === assignee)
-      .sort((a, b) => a.priority - b.priority);
-  }
-  
-  async createTask(insertTask: InsertTask): Promise<Task> {
-    const id = this.taskIdCounter++;
-    const task: Task = { ...insertTask, id };
-    this.tasks.set(id, task);
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
     return task;
   }
-  
+
+  async getTasksByPhase(phaseId: number): Promise<Task[]> {
+    return await db.select().from(tasks).where(eq(tasks.phaseId, phaseId));
+  }
+
+  async getTasksByProject(projectId: number): Promise<Task[]> {
+    return await db.select().from(tasks).where(eq(tasks.projectId, projectId));
+  }
+
+  async getTasksByAssignee(assignee: string): Promise<Task[]> {
+    return await db.select().from(tasks).where(eq(tasks.assignee, assignee));
+  }
+
+  async createTask(task: InsertTask): Promise<Task> {
+    const [newTask] = await db.insert(tasks).values(task).returning();
+    return newTask;
+  }
+
   async updateTask(id: number, data: Partial<Task>): Promise<Task | undefined> {
-    const task = await this.getTask(id);
-    if (!task) return undefined;
-    
-    const updatedTask = { ...task, ...data };
-    this.tasks.set(id, updatedTask);
+    const [updatedTask] = await db.update(tasks).set(data).where(eq(tasks.id, id)).returning();
     return updatedTask;
   }
-  
+
   async deleteTask(id: number): Promise<boolean> {
-    return this.tasks.delete(id);
+    await db.delete(tasks).where(eq(tasks.id, id));
+    return true;
   }
-  
-  // Project Member methods
+
   async getProjectMembers(projectId: number): Promise<ProjectMember[]> {
-    return Array.from(this.projectMembers.values()).filter(
-      member => member.projectId === projectId
-    );
+    return await db.select().from(projectMembers).where(eq(projectMembers.projectId, projectId));
   }
-  
-  async addProjectMember(insertMember: InsertProjectMember): Promise<ProjectMember> {
-    const id = this.memberIdCounter++;
-    const member: ProjectMember = { ...insertMember, id };
-    this.projectMembers.set(id, member);
-    return member;
+
+  async addProjectMember(member: InsertProjectMember): Promise<ProjectMember> {
+    const [newMember] = await db.insert(projectMembers).values(member).returning();
+    return newMember;
   }
-  
+
   async removeProjectMember(projectId: number, userId: string): Promise<boolean> {
-    const memberEntry = Array.from(this.projectMembers.entries()).find(
-      ([_, member]) => member.projectId === projectId && member.userId === userId
+    await db.delete(projectMembers).where(
+      and(
+        eq(projectMembers.projectId, projectId),
+        eq(projectMembers.userId, userId)
+      )
     );
-    
-    if (memberEntry) {
-      return this.projectMembers.delete(memberEntry[0]);
-    }
-    
-    return false;
+    return true;
   }
 }
 
-// Create and export the storage instance
-export const storage = new MemStorage();
-
-// Add some seed data for demo
-const seedData = async () => {
-  // Create demo user
-  const user = await storage.createUser({
-    username: 'demo',
-    password: 'password123',
-    email: 'demo@example.com',
-    fullName: 'Demo User',
-    role: 'Project Manager',
-    avatarUrl: '',
-  });
-  
-  // Create two projects
-  const project1 = await storage.createProject({
-    name: 'Website Redesign',
-    description: 'Complete overhaul of the company website',
-    ownerId: user.email,
-    color: '#3b82f6', // blue
-  });
-  
-  const project2 = await storage.createProject({
-    name: 'Product Launch',
-    description: 'Q3 new product release',
-    ownerId: user.email,
-    color: '#8b5cf6', // purple
-  });
-  
-  // Create phases for website redesign
-  const phase1 = await storage.createPhase({
-    projectId: project1.id,
-    name: 'Research',
-    startDate: new Date('2023-01-15'),
-    endDate: new Date('2023-02-15'),
-    deliverable: 'Market research and competitor analysis report',
-    responsible: 'John Doe',
-    status: 'completed',
-    progress: 100,
-  });
-  
-  const phase2 = await storage.createPhase({
-    projectId: project1.id,
-    name: 'Design',
-    startDate: new Date('2023-02-15'),
-    endDate: new Date('2023-04-30'),
-    deliverable: 'UI/UX design mockups and wireframes',
-    responsible: 'Sarah Johnson',
-    status: 'in_progress',
-    progress: 45,
-  });
-  
-  const phase3 = await storage.createPhase({
-    projectId: project1.id,
-    name: 'Development',
-    startDate: new Date('2023-05-01'),
-    endDate: new Date('2023-07-01'),
-    deliverable: 'Functioning website with all features',
-    responsible: 'Michael Chen',
-    status: 'not_started',
-    progress: 0,
-  });
-  
-  // Create phases for product launch
-  const phase4 = await storage.createPhase({
-    projectId: project2.id,
-    name: 'Planning',
-    startDate: new Date('2023-02-15'),
-    endDate: new Date('2023-03-15'),
-    deliverable: 'Project plan and resource allocation',
-    responsible: 'Emily Clark',
-    status: 'completed',
-    progress: 100,
-  });
-  
-  const phase5 = await storage.createPhase({
-    projectId: project2.id,
-    name: 'Development',
-    startDate: new Date('2023-03-15'),
-    endDate: new Date('2023-06-15'),
-    deliverable: 'Product prototype',
-    responsible: 'James Wilson',
-    status: 'in_progress',
-    progress: 65,
-  });
-  
-  const phase6 = await storage.createPhase({
-    projectId: project2.id,
-    name: 'Marketing',
-    startDate: new Date('2023-06-15'),
-    endDate: new Date('2023-08-15'),
-    deliverable: 'Marketing materials and campaign plan',
-    responsible: 'Lisa Zhang',
-    status: 'not_started',
-    progress: 0,
-  });
-  
-  // Create tasks for phases
-  await storage.createTask({
-    phaseId: phase1.id,
-    projectId: project1.id,
-    name: 'Analyze competitor websites',
-    assignee: 'John Doe',
-    dueDate: new Date('2023-01-25'),
-    status: 'done',
-    priority: 0,
-  });
-  
-  await storage.createTask({
-    phaseId: phase1.id,
-    projectId: project1.id,
-    name: 'Conduct user interviews',
-    assignee: 'John Doe',
-    dueDate: new Date('2023-02-05'),
-    status: 'done',
-    priority: 1,
-  });
-  
-  await storage.createTask({
-    phaseId: phase2.id,
-    projectId: project1.id,
-    name: 'Create wireframes',
-    assignee: 'Sarah Johnson',
-    dueDate: new Date('2023-03-15'),
-    status: 'done',
-    priority: 0,
-  });
-  
-  await storage.createTask({
-    phaseId: phase2.id,
-    projectId: project1.id,
-    name: 'Design system components',
-    assignee: 'Sarah Johnson',
-    dueDate: new Date('2023-04-15'),
-    status: 'doing',
-    priority: 1,
-  });
-  
-  await storage.createTask({
-    phaseId: phase4.id,
-    projectId: project2.id,
-    name: 'Define project scope',
-    assignee: 'Emily Clark',
-    dueDate: new Date('2023-02-25'),
-    status: 'done',
-    priority: 0,
-  });
-  
-  await storage.createTask({
-    phaseId: phase5.id,
-    projectId: project2.id,
-    name: 'Develop core features',
-    assignee: 'James Wilson',
-    dueDate: new Date('2023-04-30'),
-    status: 'doing',
-    priority: 0,
-  });
-};
-
-// Call the seed function
-seedData();
+// Initialize storage with database implementation
+export const storage = new DatabaseStorage();
