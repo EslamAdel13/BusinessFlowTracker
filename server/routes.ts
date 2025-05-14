@@ -7,7 +7,8 @@ import {
   insertUserSchema, 
   insertProjectSchema, 
   insertPhaseSchema, 
-  insertTaskSchema 
+  insertTaskSchema,
+  User
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -19,31 +20,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // User routes
   apiRouter.get("/users/me", async (req, res) => {
-    // In a real app, this would use session/auth middleware
-    // For this demo, we'll just return the first user
-    const users = Array.from(storage.users.values());
-    if (users.length === 0) {
-      return res.status(404).json({ message: "No users found" });
+    try {
+      // For demo purposes, check if we have any users in the database
+      // In a real app, this would use session/auth middleware
+      
+      // Create a demo user if needed (for testing only)
+      let demoUser = await storage.getUserByEmail('demo@example.com');
+      
+      // If no demo user exists, create one
+      if (!demoUser) {
+        demoUser = await storage.createUser({
+          username: 'demo',
+          password: 'password123',
+          email: 'demo@example.com',
+          fullName: 'Demo User',
+          role: 'Project Manager',
+          avatarUrl: '',
+        });
+      }
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = demoUser;
+      
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      console.error('Error getting current user:', error);
+      res.status(500).json({ message: error.message });
     }
-    
-    // Return first user as "current user"
-    const user = users[0];
-    // Remove password from response
-    const { password, ...userWithoutPassword } = user;
-    
-    res.json(userWithoutPassword);
   });
   
   // Project routes
   apiRouter.get("/projects", async (req, res) => {
     try {
-      // Get current user (in a real app, would be from auth middleware)
-      const users = Array.from(storage.users.values());
-      if (users.length === 0) {
-        return res.status(404).json({ message: "No users found" });
-      }
+      // For demo purposes, use our demo user
+      // In a real app, this would use session/auth middleware
+      const currentUser: User | undefined = await storage.getUserByEmail('demo@example.com');
       
-      const currentUser = users[0];
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found. Please access /api/users/me first to create a demo user." });
+      }
       
       // Get projects owned by the user
       const ownedProjects = await storage.getProjectsByOwner(currentUser.email);
@@ -55,6 +70,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allProjects = [...ownedProjects, ...sharedProjects];
       res.json(allProjects);
     } catch (error: any) {
+      console.error('Error getting projects:', error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -267,18 +283,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all tasks for the current user
   apiRouter.get("/tasks", async (req, res) => {
     try {
-      // Get current user (in a real app, would be from auth middleware)
-      const users = Array.from(storage.users.values());
-      if (users.length === 0) {
-        return res.status(404).json({ message: "No users found" });
+      // For demo purposes, use our demo user
+      // In a real app, this would use session/auth middleware
+      const currentUser: User | undefined = await storage.getUserByEmail('demo@example.com');
+      
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found. Please access /api/users/me first to create a demo user." });
       }
       
-      const currentUser = users[0];
-      
       // Get tasks assigned to the user
-      const tasks = await storage.getTasksByAssignee(currentUser.fullName || currentUser.username);
+      const assigneeName = currentUser.fullName || currentUser.username;
+      const tasks = await storage.getTasksByAssignee(assigneeName);
       res.json(tasks);
     } catch (error: any) {
+      console.error('Error getting tasks for user:', error);
       res.status(500).json({ message: error.message });
     }
   });
