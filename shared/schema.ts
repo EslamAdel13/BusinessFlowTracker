@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -114,3 +115,55 @@ export type Task = typeof tasks.$inferSelect;
 // Project Member type
 export type ProjectMember = typeof projectMembers.$inferSelect;
 export type InsertProjectMember = typeof projectMembers.$inferInsert;
+
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  projectsOwned: many(projects, { relationName: 'owner' }),
+  projectMemberships: many(projectMembers, { relationName: 'memberUser' }),
+}));
+
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [projects.ownerId],
+    references: [users.email],
+    relationName: 'owner'
+  }),
+  phases: many(phases, { relationName: 'projectPhases' }),
+  tasks: many(tasks, { relationName: 'projectTasks' }),
+  members: many(projectMembers, { relationName: 'projectMembers' }),
+}));
+
+export const phasesRelations = relations(phases, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [phases.projectId],
+    references: [projects.id],
+    relationName: 'projectPhases'
+  }),
+  tasks: many(tasks, { relationName: 'phaseTasks' }),
+}));
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  project: one(projects, {
+    fields: [tasks.projectId],
+    references: [projects.id],
+    relationName: 'projectTasks'
+  }),
+  phase: one(phases, {
+    fields: [tasks.phaseId],
+    references: [phases.id],
+    relationName: 'phaseTasks'
+  }),
+}));
+
+export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectMembers.projectId],
+    references: [projects.id],
+    relationName: 'projectMembers'
+  }),
+  user: one(users, {
+    fields: [projectMembers.userId],
+    references: [users.email],
+    relationName: 'memberUser'
+  }),
+}));
