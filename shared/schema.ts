@@ -23,7 +23,7 @@ export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  ownerId: text("owner_id").notNull(),
+  owner_id: text("owner_id").notNull(),
   color: text("color").default('#6366f1'),
   createdAt: timestamp("created_at").defaultNow(),
 });

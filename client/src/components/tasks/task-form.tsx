@@ -7,7 +7,7 @@ import { insertTaskSchema, Task } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAppStore } from "@/lib/store";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth.tsx";
 import { addDays, format } from "date-fns";
 
 import {

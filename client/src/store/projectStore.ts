@@ -16,7 +16,7 @@ interface ProjectState {
   updateProject: (id: number, data: Partial<Project>) => Promise<void>;
   deleteProject: (id: number) => Promise<void>;
   
-  fetchPhases: (projectId: number) => Promise<Phase[]>;
+  fetchPhases: (project_id: number) => Promise<Phase[]>;
   createPhase: (phase: Omit<Phase, 'id'>) => Promise<Phase>;
   updatePhase: (id: number, data: Partial<Phase>) => Promise<void>;
   deletePhase: (id: number) => Promise<void>;
@@ -68,24 +68,22 @@ export const useProjectStore = create<ProjectState>()(
           .order('id', { ascending: true });
           
         if (error) {
-          console.error('Error fetching projects from Supabase:', error);
-          
-          // Use localStorage projects as fallback
-          const localProjects = loadLocalProjects();
-          console.log('Using local projects as fallback:', localProjects);
-          set({ projects: localProjects, isLoading: false });
+          throw error;
+        }
+        
+        if (!data || data.length === 0) {
+          console.warn('No projects found in Supabase');
+          set({ projects: [], isLoading: false });
           return;
         }
         
-        // Store in localStorage for offline access
+        // Always update localStorage with Supabase data
         saveLocalProjects(data);
         set({ projects: data, isLoading: false });
       } catch (error: any) {
         console.error('Failed to fetch projects:', error);
-        // Use localStorage as fallback
-        const localProjects = loadLocalProjects();
         set({ 
-          projects: localProjects,
+          projects: [],
           isLoading: false, 
           error: error.message || 'Failed to fetch projects' 
         });
@@ -106,33 +104,19 @@ export const useProjectStore = create<ProjectState>()(
           
         if (error) {
           console.error('Project creation error:', error);
-          
-          // Create a local project with an ID
-          const localProjects = loadLocalProjects();
-          const maxId = localProjects.length > 0 
-            ? Math.max(...localProjects.map(p => p.id)) 
-            : 0;
-          
-          const localProject = {
-            ...project,
-            id: maxId + 1,
-            createdAt: new Date().toISOString()
-          } as unknown as Project;
-          
-          console.log('Created local project:', localProject);
-          
-          // Save to localStorage and update state
-          const updatedProjects = [...get().projects, localProject];
-          saveLocalProjects(updatedProjects);
-          set({ projects: updatedProjects, isLoading: false });
-          return localProject;
+          throw error;
         }
         
         console.log('Project created successfully in Supabase:', data);
-        const projects = [...get().projects, data];
-        // Update localStorage
-        saveLocalProjects(projects);
-        set({ projects, isLoading: false });
+        const updatedProjects = [...get().projects, data];
+        
+        // Immediately update localStorage and state
+        saveLocalProjects(updatedProjects);
+        set({ projects: updatedProjects, isLoading: false });
+        
+        // Trigger a full refresh to ensure data consistency
+        await get().fetchProjects();
+        
         return data;
       } catch (error: any) {
         console.error('Project creation failed:', error);
@@ -140,27 +124,7 @@ export const useProjectStore = create<ProjectState>()(
           isLoading: false, 
           error: error.message || 'Failed to create project' 
         });
-        // Even on error, create a local version
-        try {
-          const localProjects = loadLocalProjects();
-          const maxId = localProjects.length > 0 
-            ? Math.max(...localProjects.map(p => p.id)) 
-            : 0;
-          
-          const localProject = {
-            ...project,
-            id: maxId + 1,
-            createdAt: new Date().toISOString()
-          } as unknown as Project;
-          
-          const updatedProjects = [...get().projects, localProject];
-          saveLocalProjects(updatedProjects);
-          set({ projects: updatedProjects });
-          return localProject;
-        } catch (localError) {
-          console.error('Failed to create local project:', localError);
-          throw error;
-        }
+        throw error;
       }
     },
     

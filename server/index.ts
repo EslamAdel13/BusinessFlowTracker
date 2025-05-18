@@ -36,6 +36,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Check if we're running in API-only mode
+const isApiOnly = process.argv.includes('--api-only');
+
 (async () => {
   const server = await registerRoutes(app);
 
@@ -47,24 +50,32 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
+  // Only setup Vite if we're not in API-only mode
+  if (!isApiOnly) {
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
   } else {
-    serveStatic(app);
+    log('Running in API-only mode. Client-side will not be served.');
+    // Add a simple root route for API-only mode
+    app.get('/', (_req, res) => {
+      res.send('Server running in API-only mode. Access the API at /api endpoints.');
+    });
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Get port from environment variable or use default
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+  
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+    host: "localhost", // Use localhost instead of 0.0.0.0 for Windows compatibility
+    // Remove reusePort as it's not supported on Windows
   }, () => {
-    log(`serving on port ${port}`);
+    log(`Server running at http://localhost:${port}`);
   });
 })();

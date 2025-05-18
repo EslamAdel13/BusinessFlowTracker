@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/lib/auth";
-import { AvatarWithInitials } from "@/components/ui/avatar-with-initials";
+import { useAuth } from "@/lib/auth.tsx";
+import AvatarWithInitials from "@/components/ui/avatar-with-initials";
 import { useCompanySettings } from "@/lib/store";
 import { LayoutGrid, BarChartHorizontal, CheckSquare, BookmarkIcon, InfoIcon } from "lucide-react";
 
@@ -17,8 +17,8 @@ export function Sidebar() {
       icon: <BarChartHorizontal className="h-5 w-5 mr-3" />,
     },
     {
-      name: "My Tasks",
-      href: "/my-tasks",
+      name: "Tasks",
+      href: "/tasks",
       icon: <CheckSquare className="h-5 w-5 mr-3" />,
     },
     {
@@ -27,8 +27,8 @@ export function Sidebar() {
       icon: <BookmarkIcon className="h-5 w-5 mr-3" />,
     },
     {
-      name: "Reports",
-      href: "/reports",
+      name: "Settings",
+      href: "/settings",
       icon: <InfoIcon className="h-5 w-5 mr-3" />,
     },
   ];
@@ -57,17 +57,18 @@ export function Sidebar() {
 
       <nav className="flex-1 px-2 py-4 space-y-1">
         {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <a
-              className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-                location === item.href
-                  ? "text-white bg-primary-600"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              {item.icon}
-              {item.name}
-            </a>
+          <Link 
+            key={item.href} 
+            href={item.href}
+            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
+              location.startsWith(item.href) || 
+              (item.href === "/timeline" && location === "/")
+                ? "text-white bg-primary-600"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            {item.icon}
+            {item.name}
           </Link>
         ))}
       </nav>

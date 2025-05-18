@@ -1,0 +1,274 @@
+import { FC, useState, useRef, useEffect } from 'react';
+import { Phase } from '@shared/schema';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { calculatePhasePosition, positionToDate, dateToPosition } from '@/lib/date';
+import { formatShortDate } from '@/lib/utils';
+import { useProjectStore } from '@/store/projectStore';
+import { cn } from '@/lib/utils';
+
+interface DraggablePhaseBarProps {
+  phase: Phase;
+  timelineStartDate: Date;
+  onClick: () => void;
+  monthWidth: number;
+}
+
+const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({ 
+  phase, 
+  timelineStartDate, 
+  onClick,
+  monthWidth = 120
+}) => {
+  const phaseRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const [isResizingRight, setIsResizingRight] = useState(false);
+  const [position, setPosition] = useState({ left: 0, width: 0 });
+  const [originalDates, setOriginalDates] = useState({
+    start: new Date(phase.start_date || new Date()),
+    end: new Date(phase.end_date || new Date())
+  });
+  const { updatePhase } = useProjectStore();
+
+  // Calculate initial position
+  useEffect(() => {
+    if (phase && phase.start_date && phase.end_date) {
+      const { left, width } = calculatePhasePosition(
+        phase.start_date,
+        phase.end_date,
+        timelineStartDate,
+        monthWidth
+      );
+      
+      setPosition({ left, width });
+      setOriginalDates({
+        start: new Date(phase.start_date),
+        end: new Date(phase.end_date)
+      });
+    }
+  }, [phase, phase.start_date, phase.end_date, timelineStartDate, monthWidth]);
+
+  // Get phase color based on ID for visual variety
+  const getPhaseColor = () => {
+    const phaseColors = [
+      'bg-chart-1',  // Blue
+      'bg-chart-2',  // Purple
+      'bg-chart-3',  // Green
+      'bg-chart-4',  // Red
+      'bg-chart-5',  // Orange
+      'bg-indigo-500',
+      'bg-pink-500',
+      'bg-teal-500',
+      'bg-amber-500',
+      'bg-cyan-500'
+    ];
+    
+    const colorIndex = phase.id % phaseColors.length;
+    return phaseColors[colorIndex];
+  };
+
+  // Helper function to convert position to date with the current timeline context
+  const convertPositionToDate = (posX: number): Date => {
+    return positionToDate(posX, timelineStartDate, monthWidth);
+  };
+
+  // Handle mouse events for dragging and resizing
+  const handleMouseDown = (e: React.MouseEvent, action: 'drag' | 'resizeLeft' | 'resizeRight') => {
+    e.stopPropagation();
+    
+    if (action === 'drag') {
+      setIsDragging(true);
+    } else if (action === 'resizeLeft') {
+      setIsResizingLeft(true);
+    } else if (action === 'resizeRight') {
+      setIsResizingRight(true);
+    }
+    
+    // Save original dates for reference
+    setOriginalDates({
+      start: new Date(phase.start_date || new Date()),
+      end: new Date(phase.end_date || new Date())
+    });
+    
+    // Add event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!phaseRef.current || (!isDragging && !isResizingLeft && !isResizingRight)) return;
+    
+    // Get timeline container for relative positioning
+    const timelineContainer = phaseRef.current.closest('.timeline-months');
+    if (!timelineContainer) return;
+    
+    const timelineRect = timelineContainer.getBoundingClientRect();
+    const phaseRect = phaseRef.current.getBoundingClientRect();
+    
+    // Calculate mouse position relative to timeline
+    const mouseX = e.clientX - timelineRect.left;
+    
+    if (isDragging) {
+      // Move the entire phase
+      const newLeft = mouseX - (phaseRect.width / 2);
+      
+      // Ensure phase stays within timeline bounds
+      const boundedLeft = Math.max(0, Math.min(newLeft, timelineRect.width - phaseRect.width));
+      
+      setPosition(prev => ({ ...prev, left: boundedLeft }));
+      
+      // Update dates based on new position
+      const newStartDate = convertPositionToDate(boundedLeft);
+      const durationMs = originalDates.end.getTime() - originalDates.start.getTime();
+      const newEndDate = new Date(newStartDate.getTime() + durationMs);
+      
+      // Don't update the database on every mouse move, just visual feedback
+    } else if (isResizingLeft) {
+      // Resize from left edge
+      const newLeft = mouseX;
+      const newWidth = position.left + position.width - newLeft;
+      
+      // Ensure minimum width and within bounds
+      if (newWidth >= 60 && newLeft >= 0) {
+        setPosition({ left: newLeft, width: newWidth });
+        
+        // Update start date based on new position
+        const newStartDate = convertPositionToDate(newLeft);
+        
+        // Don't update the database on every mouse move, just visual feedback
+      }
+    } else if (isResizingRight) {
+      // Resize from right edge
+      const newWidth = mouseX - position.left;
+      
+      // Ensure minimum width and within bounds
+      if (newWidth >= 60 && position.left + newWidth <= timelineRect.width) {
+        setPosition(prev => ({ ...prev, width: newWidth }));
+        
+        // Update end date based on new position
+        const newEndDate = convertPositionToDate(position.left + newWidth);
+        
+        // Don't update the database on every mouse move, just visual feedback
+      }
+    }
+  };
+
+  const handleMouseUp = async () => {
+    if (isDragging || isResizingLeft || isResizingRight) {
+      try {
+        // Calculate new dates based on final position
+        const newStartDate = convertPositionToDate(position.left);
+        const newEndDate = convertPositionToDate(position.left + position.width);
+        
+        // Ensure end date is after start date
+        if (newEndDate <= newStartDate) {
+          // Add at least one day to end date
+          newEndDate.setDate(newStartDate.getDate() + 1);
+        }
+        
+        console.log('Saving phase position:', {
+          phase_id: phase.id,
+          start_date: newStartDate.toISOString(),
+          end_date: newEndDate.toISOString(),
+          position
+        });
+        
+        // Update phase in database
+        await updatePhase(phase.id, {
+          start_date: newStartDate.toISOString(),
+          end_date: newEndDate.toISOString()
+        });
+        
+        // Update local state to reflect the changes
+        setOriginalDates({
+          start: newStartDate,
+          end: newEndDate
+        });
+        
+        // Force a position recalculation
+        const { left, width } = calculatePhasePosition(
+          newStartDate,
+          newEndDate,
+          timelineStartDate,
+          monthWidth
+        );
+        setPosition({ left, width });
+        
+        console.log('Phase position saved successfully');
+      } catch (error) {
+        console.error('Failed to save phase position:', error);
+      }
+      
+      // Reset state
+      setIsDragging(false);
+      setIsResizingLeft(false);
+      setIsResizingRight(false);
+    }
+    
+    // Remove event listeners
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+
+  const phaseColorClass = getPhaseColor();
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            ref={phaseRef}
+            className={cn(
+              "phase-bar cursor-move absolute top-4 z-10 text-white text-xs flex items-center justify-center shadow h-7 rounded-md",
+              phaseColorClass,
+              isDragging || isResizingLeft || isResizingRight ? "opacity-80" : ""
+            )}
+            style={{
+              left: `${Math.max(0, position.left)}px`,
+              width: `${Math.max(60, position.width)}px`,
+              minWidth: position.width === 0 ? '60px' : 'auto',
+              height: '28px',
+              backgroundColor: phase.color || '',
+              transition: isDragging || isResizingLeft || isResizingRight ? 'none' : 'all 0.2s ease'
+            }}
+            onClick={(e) => {
+              if (!isDragging && !isResizingLeft && !isResizingRight) {
+                onClick();
+              }
+            }}
+            onMouseDown={(e) => handleMouseDown(e, 'drag')}
+          >
+            {/* Left resize handle */}
+            <div 
+              className="absolute left-0 top-0 w-2 h-full cursor-w-resize z-20"
+              onMouseDown={(e) => handleMouseDown(e, 'resizeLeft')}
+            />
+            
+            {/* Phase content */}
+            <span className="px-2 truncate">{phase.name}</span>
+            
+            {/* Right resize handle */}
+            <div 
+              className="absolute right-0 top-0 w-2 h-full cursor-e-resize z-20"
+              onMouseDown={(e) => handleMouseDown(e, 'resizeRight')}
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <div className="text-sm">
+            <p className="font-medium">{phase.name}</p>
+            <p className="text-xs text-gray-500">
+              {formatShortDate(new Date(phase.start_date || new Date()))} - {formatShortDate(new Date(phase.end_date || new Date()))}
+            </p>
+            <p className="text-xs text-gray-500">Deliverable: {phase.deliverable}</p>
+            <p className="text-xs text-gray-500">Responsible: {phase.responsible}</p>
+            <p className="text-xs text-gray-500">Status: {phase.status.replace('_', ' ')}</p>
+            <p className="text-xs text-gray-500">Progress: {phase.progress}%</p>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
+export default DraggablePhaseBar;

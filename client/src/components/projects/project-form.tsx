@@ -4,8 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { insertProjectSchema, Project } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth.tsx";
 import { useToast } from "@/hooks/use-toast";
 import { useAppStore } from "@/lib/store";
 import { addDays, format } from "date-fns";
@@ -34,6 +34,7 @@ const projectFormSchema = insertProjectSchema.extend({
   initialPhase: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+  ownerId: z.string().optional()
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -62,7 +63,7 @@ export function ProjectForm({ project }: ProjectFormProps) {
       name: project?.name || "",
       description: project?.description || "",
       color: project?.color || "#6366F1", // Default to indigo
-      ownerId: user?.id,
+      owner_id: user?.id ?? '',
       initialPhase: "",
       startDate: format(new Date(), "yyyy-MM-dd"),
       endDate: format(addDays(new Date(), 30), "yyyy-MM-dd"),
@@ -71,15 +72,81 @@ export function ProjectForm({ project }: ProjectFormProps) {
 
   const createMutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
-      // Extract initialPhase data before sending to API
+      console.log('Project creation started', { user, values });
+
+      // Ensure user is authenticated
+      if (!user) {
+        console.error('No user found during project creation');
+        throw new Error('You must be logged in to create a project');
+      }
+
+      // Extract initialPhase data before sending to Supabase
       const { initialPhase, startDate, endDate, ...projectData } = values;
+
+      console.log('Prepared project data:', { projectData, user });
+      console.log('User ID:', user.id);
       
-      const response = await apiRequest("POST", "/api/projects", projectData);
-      const data = await response.json();
+      console.log('Attempting Supabase insertion with data:', projectData);
+      
+      // Log the exact keys being sent
+      console.log('Project data keys:', Object.keys(projectData));
+      
+      // Validate data before insertion
+      console.log('User object:', user);
+      console.log('Full project data:', projectData);
+      
+      const validatedData = {
+        name: projectData.name,
+        description: projectData.description || null,
+        owner_id: user.id,  // Always use the current user's ID
+        color: projectData.color || '#6366f1'
+      };
+      
+      console.log('Validated data for Supabase:', validatedData);
+      console.log('User ID being used:', user.id);
+      
+      // Verify user ID type and value
+      if (!user.id) {
+        console.error('No user ID found!');
+        throw new Error('Authentication required to create a project');
+      }
+      
+      console.log('Validated data for insertion:', validatedData);
+      
+      console.log('Attempting Supabase insertion with:', validatedData);
+      
+      const { data, error } = await supabase
+        .from('projects')
+        .insert(validatedData)
+        .select()
+        .single();
+      
+      console.log('Supabase insertion result:', { data, error });
+      
+      if (error) {
+        console.error('Detailed Supabase error:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+      }
+      
+      console.log('Supabase insertion result:', { data, error });
+      
+      if (error) {
+        console.error('Supabase insertion error:', {
+          code: error.code,
+          message: error.message,
+          details: error.details
+        });
+        throw error;
+      }
       
       // If there's an initial phase, create it
       if (initialPhase && startDate && endDate) {
-        await apiRequest("POST", `/api/projects/${data.id}/phases`, {
+        await supabase.from('phases').insert({
+          projectId: data.id,
           name: initialPhase,
           startDate: new Date(startDate),
           endDate: new Date(endDate),
@@ -91,7 +158,6 @@ export function ProjectForm({ project }: ProjectFormProps) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       toast({
         title: "Project created",
         description: "Your project has been created successfully.",

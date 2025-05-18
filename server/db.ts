@@ -1,9 +1,7 @@
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
-
-// Use DATABASE_URL from environment (provided by Replit)
-const DATABASE_URL = process.env.DATABASE_URL;
+import { DATABASE_URL } from './env';
 
 if (!DATABASE_URL) {
   throw new Error(
