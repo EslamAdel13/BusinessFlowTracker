@@ -45,7 +45,7 @@ const ProjectRow: FC<ProjectRowProps> = ({ project, phases, timelineStartDate })
         </div>
         
         <div className="flex-1 relative">
-          <div className="timeline-months" style={{ height: '60px' }}>
+          <div className="timeline-months" style={{ height: '60px', position: 'relative' }}>
             {phases.map((phase) => (
               <PhaseBar
                 key={phase.id}

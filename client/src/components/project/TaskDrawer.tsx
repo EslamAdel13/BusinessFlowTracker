@@ -50,7 +50,7 @@ const TaskDrawer = () => {
         <SheetHeader className="mb-6">
           <SheetTitle>{selectedPhase.name}</SheetTitle>
           <SheetDescription>
-            {formatDateRange(selectedPhase.startDate, selectedPhase.endDate)}
+            {formatDateRange(selectedPhase.start_date, selectedPhase.end_date)}
           </SheetDescription>
         </SheetHeader>
         
@@ -60,13 +60,13 @@ const TaskDrawer = () => {
               <div>
                 <div className="text-xs text-gray-500 mb-1">Start Date</div>
                 <div className="text-sm font-medium">
-                  {new Date(selectedPhase.startDate).toLocaleDateString()}
+                  {selectedPhase.start_date ? new Date(selectedPhase.start_date).toLocaleDateString() : 'Not set'}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">End Date</div>
                 <div className="text-sm font-medium">
-                  {new Date(selectedPhase.endDate).toLocaleDateString()}
+                  {selectedPhase.end_date ? new Date(selectedPhase.end_date).toLocaleDateString() : 'Not set'}
                 </div>
               </div>
               <div>
@@ -136,7 +136,7 @@ const TaskDrawer = () => {
             <div className="mb-4">
               <CreateTaskForm 
                 phaseId={selectedPhase.id}
-                projectId={selectedPhase.projectId}
+                projectId={selectedPhase.project_id}
                 onSuccess={() => setShowAddTask(false)}
               />
             </div>
@@ -156,10 +156,10 @@ const TaskDrawer = () => {
                   onStatusChange={() => {
                     // Recalculate phase progress based on completed tasks
                     const completedTasks = tasks.filter(t => 
-                      t.phaseId === selectedPhase.id && t.status === 'done'
+                      t.phase_id === selectedPhase.id && t.status === 'done'
                     ).length;
                     
-                    const totalTasks = tasks.filter(t => t.phaseId === selectedPhase.id).length;
+                    const totalTasks = tasks.filter(t => t.phase_id === selectedPhase.id).length;
                     const progressPercentage = totalTasks > 0 
                       ? Math.round((completedTasks / totalTasks) * 100) 
                       : 0;

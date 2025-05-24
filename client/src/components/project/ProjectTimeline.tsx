@@ -18,6 +18,14 @@ const ProjectTimeline = () => {
   
   useEffect(() => {
     fetchProjects();
+    
+    // Set up a refresh interval to catch any updates, but much less frequently
+    // to avoid excessive API calls and improve performance
+    const refreshInterval = setInterval(() => {
+      fetchProjects();
+    }, 60000); // Refresh every 60 seconds instead of every 5 seconds
+    
+    return () => clearInterval(refreshInterval);
   }, [fetchProjects]);
   
   useEffect(() => {
@@ -26,16 +34,35 @@ const ProjectTimeline = () => {
   
   const fetchPhasesForProjects = async () => {
     const phases: {[key: number]: Phase[]} = {};
+    console.log('Fetching phases for projects:', projects);
     
     for (const project of projects) {
       try {
+        console.log(`Fetching phases for project ${project.id}`);
         const projectPhases = await useProjectStore.getState().fetchPhases(project.id);
-        phases[project.id] = projectPhases;
+        console.log(`Received phases for project ${project.id}:`, projectPhases);
+        
+        // Ensure we have valid phases with proper dates
+        const validPhases = projectPhases.map(phase => {
+          // Make sure start_date and end_date are valid
+          if (!phase.start_date) {
+            console.warn(`Phase ${phase.id} has no start_date, using project start date`);
+            phase.start_date = project.start_date;
+          }
+          if (!phase.end_date) {
+            console.warn(`Phase ${phase.id} has no end_date, using project end date`);
+            phase.end_date = project.end_date;
+          }
+          return phase;
+        });
+        
+        phases[project.id] = validPhases;
       } catch (error) {
         console.error(`Failed to fetch phases for project ${project.id}:`, error);
       }
     }
     
+    console.log('Setting project phases:', phases);
     setProjectPhases(phases);
   };
   
@@ -157,26 +184,33 @@ const ProjectTimeline = () => {
               <div className="w-64 pl-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Project
               </div>
-              <div className="flex-1 overflow-hidden">
-                <TimelineMonths months={months} />
+              <div className="flex-1 overflow-x-auto custom-scrollbar">
+                <TimelineMonths months={months} monthWidth={100} />
               </div>
             </div>
           </div>
           
           {/* Project Rows & Gantt Chart */}
-          <div className="custom-scrollbar" style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}>
-            {isLoading ? (
-              renderSkeletonRows()
-            ) : (
-              projects.map((project: Project) => (
-                <ProjectRow 
-                  key={project.id} 
-                  project={project} 
-                  phases={projectPhases[project.id] || []} 
-                  timelineStartDate={timelineStartDate}
-                />
-              ))
-            )}
+          <div className="timeline-container">
+            <div className="custom-scrollbar" style={{ 
+              maxHeight: 'calc(100vh - 260px)', 
+              overflowY: 'auto', 
+              overflowX: 'auto',
+              width: '100%'
+            }}>
+              {isLoading ? (
+                renderSkeletonRows()
+              ) : (
+                projects.map((project: Project) => (
+                  <ProjectRow 
+                    key={project.id} 
+                    project={project} 
+                    phases={projectPhases[project.id] || []} 
+                    timelineStartDate={timelineStartDate}
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

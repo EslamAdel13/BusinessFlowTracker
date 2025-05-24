@@ -3,6 +3,9 @@ import type { Config } from "tailwindcss";
 export default {
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
+  safelist: [
+    'border-border'
+  ],
   theme: {
     extend: {
       borderRadius: {
@@ -83,6 +86,9 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+      },
+      gridTemplateColumns: {
+        timeline: '200px repeat(12, 1fr)'    // shorthand utility `grid-cols-timeline`
       },
     },
   },

@@ -6,6 +6,15 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Add Content Security Policy headers to allow fonts and other resources
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self' *.supabase.co; connect-src 'self' *.supabase.co wss://*.supabase.co; font-src 'self' data: http: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: http: https:;"
+  );
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -40,6 +49,13 @@ app.use((req, res, next) => {
 const isApiOnly = process.argv.includes('--api-only');
 
 (async () => {
+  // Force development mode for the 'npm run dev' command
+  const forceDev = true; // Set this to true for development
+  app.set('env', forceDev ? 'development' : (process.env.NODE_ENV || 'production'));
+  
+  // Log the NODE_ENV value to debug
+  log(`NODE_ENV from process.env: ${process.env.NODE_ENV}`);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -51,13 +67,24 @@ const isApiOnly = process.argv.includes('--api-only');
   });
 
   // Only setup Vite if we're not in API-only mode
+  const isDev = app.get("env") === "development";
+  log(`[DEBUG] isApiOnly: ${isApiOnly}, app.get('env'): ${app.get('env')}, isDev: ${isDev}`);
+  
   if (!isApiOnly) {
-    // importantly only setup vite in development and after
-    // setting up all the other routes so the catch-all route
-    // doesn't interfere with the other routes
-    if (app.get("env") === "development") {
-      await setupVite(app, server);
+    if (isDev) {
+      // In development mode, use Vite's dev server
+      log('Setting up Vite development server');
+      try {
+        await setupVite(app, server);
+        log('Vite development server setup complete');
+      } catch (error) {
+        log(`Error setting up Vite: ${error}`);
+        // Fallback to static serving if Vite setup fails
+        serveStatic(app);
+      }
     } else {
+      // In production mode, serve static files
+      log('Using static file serving (production mode)');
       serveStatic(app);
     }
   } else {

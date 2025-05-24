@@ -65,7 +65,7 @@ const CreateProjectModal = () => {
         name: values.name,
         description: values.description || '',
         color: values.color,
-        ownerId: user.id,
+        owner_id: user.id,
       });
       
       // If initial phase name is provided, create it
@@ -73,8 +73,8 @@ const CreateProjectModal = () => {
         await createPhase({
           projectId: newProject.id,
           name: values.initialPhase,
-          startDate: new Date(values.startDate).toISOString(),
-          endDate: new Date(values.endDate).toISOString(),
+          start_date: new Date(values.startDate).toISOString(),
+          end_date: new Date(values.endDate).toISOString(),
           deliverable: 'Initial deliverable',
           responsible: user.user_metadata?.full_name || user.email || 'Project Owner',
           status: 'not_started',

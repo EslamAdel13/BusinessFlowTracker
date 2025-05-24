@@ -89,9 +89,9 @@ export function PhaseForm({ phase }: PhaseFormProps) {
       // Convert string dates to Date objects
       const formattedValues = {
         ...values,
-        startDate: new Date(values.startDate),
-        endDate: new Date(values.endDate),
-        projectId,
+        start_date: new Date(values.startDate),
+        end_date: new Date(values.endDate),
+        project_id: projectId,
       };
       
       const response = await apiRequest("POST", `/api/projects/${projectId}/phases`, formattedValues);
@@ -122,8 +122,8 @@ export function PhaseForm({ phase }: PhaseFormProps) {
       // Convert string dates to Date objects
       const formattedValues = {
         ...values,
-        startDate: new Date(values.startDate),
-        endDate: new Date(values.endDate),
+        start_date: new Date(values.startDate),
+        end_date: new Date(values.endDate),
       };
       
       const response = await apiRequest("PATCH", `/api/phases/${phase.id}`, formattedValues);

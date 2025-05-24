@@ -9,15 +9,15 @@ import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/hooks/use-toast';
 
 interface CreateTaskFormProps {
-  phaseId: number;
-  projectId: number;
+  phaseId: number; // This is the parameter name, not the database column name
+  projectId: number; // This is the parameter name, not the database column name
   onSuccess?: () => void;
 }
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Task name is required' }),
   assignee: z.string().optional(),
-  dueDate: z.string().min(1, { message: 'Due date is required' }),
+  due_date: z.string().min(1, { message: 'Due date is required' }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -34,18 +34,18 @@ const CreateTaskForm = ({ phaseId, projectId, onSuccess }: CreateTaskFormProps) 
     defaultValues: {
       name: '',
       assignee: userName,
-      dueDate: new Date().toISOString().split('T')[0],
+      due_date: new Date().toISOString().split('T')[0],
     },
   });
   
   const onSubmit = async (values: FormValues) => {
     try {
       await createTask({
-        phaseId,
-        projectId,
+        phase_id: phaseId,
+        project_id: projectId,
         name: values.name,
         assignee: values.assignee || userName,
-        dueDate: new Date(values.dueDate).toISOString(),
+        due_date: new Date(values.due_date).toISOString(),
         status: 'todo',
         priority: 0,
       });
@@ -100,7 +100,7 @@ const CreateTaskForm = ({ phaseId, projectId, onSuccess }: CreateTaskFormProps) 
           
           <FormField
             control={form.control}
-            name="dueDate"
+            name="due_date"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs">Due Date</FormLabel>

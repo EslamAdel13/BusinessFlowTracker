@@ -11,6 +11,7 @@ import Auth from "@/pages/auth";
 import Timeline from "@/pages/timeline";
 import Tasks from "@/pages/tasks";
 import Projects from "@/pages/projects";
+import Roadmap from "@/pages/roadmap";
 import Settings from "@/pages/settings";
 import { useAuthStore } from "@/store/authStore";
 
@@ -56,6 +57,15 @@ function Router() {
         {user ? (
           <AppLayout>
             <Projects />
+          </AppLayout>
+        ) : (
+          <Auth />
+        )}
+      </Route>
+      <Route path="/roadmap">
+        {user ? (
+          <AppLayout>
+            <Roadmap />
           </AppLayout>
         ) : (
           <Auth />

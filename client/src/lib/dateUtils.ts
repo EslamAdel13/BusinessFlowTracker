@@ -2,8 +2,24 @@ import { format, isAfter, isBefore, addDays, differenceInDays, parseISO } from '
 
 // Format a date object to display in the UI
 export function formatDate(date: Date | string): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return format(dateObj, 'MMM d, yyyy');
+  try {
+    // Handle null or undefined values
+    if (!date) {
+      return 'Date not set';
+    }
+    
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      return 'Invalid date';
+    }
+    
+    return format(dateObj, 'MMM d, yyyy');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Date formatting error';
+  }
 }
 
 // Check if a date is overdue (in the past)

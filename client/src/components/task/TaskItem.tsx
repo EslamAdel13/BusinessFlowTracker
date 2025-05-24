@@ -20,8 +20,8 @@ const TaskItem = ({ task, phaseId, onStatusChange }: TaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [taskName, setTaskName] = useState(task.name);
   
-  const isDue = isWithinDays(task.dueDate, 3);
-  const isTaskOverdue = isOverdue(task.dueDate);
+  const isDue = isWithinDays(task.due_date, 3);
+  const isTaskOverdue = isOverdue(task.due_date);
   
   const handleToggleStatus = async () => {
     try {

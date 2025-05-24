@@ -1,7 +1,7 @@
 import { FC, useState, useRef, useEffect } from 'react';
 import { Phase } from '@shared/schema';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { calculatePhasePosition, positionToDate, dateToPosition } from '@/lib/date';
+import { calculatePhasePosition, positionToDate } from '@/lib/date';
 import { formatShortDate } from '@/lib/utils';
 import { useProjectStore } from '@/store/projectStore';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,7 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
   });
   const { updatePhase } = useProjectStore();
 
-  // Calculate initial position
+  // Calculate initial position when component mounts or dependencies change
   useEffect(() => {
     if (phase && phase.start_date && phase.end_date) {
       const { left, width } = calculatePhasePosition(
@@ -71,7 +71,7 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
   const convertPositionToDate = (posX: number): Date => {
     return positionToDate(posX, timelineStartDate, monthWidth);
   };
-
+  
   // Handle mouse events for dragging and resizing
   const handleMouseDown = (e: React.MouseEvent, action: 'drag' | 'resizeLeft' | 'resizeRight') => {
     e.stopPropagation();

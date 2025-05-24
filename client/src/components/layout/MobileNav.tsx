@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'wouter';
 import { cn } from '@/lib/utils';
+import { useUIStore } from '@/store/uiStore';
 
 const MobileNav = () => {
   const [location] = useLocation();
+  const { toggleSidebar } = useUIStore();
   
   const navItems = [
     {
@@ -33,6 +35,15 @@ const MobileNav = () => {
       ),
     },
     {
+      name: 'Roadmap',
+      path: '/roadmap',
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M3 3a1 1 0 000 2h10a1 1 0 100-2H3zm0 4a1 1 0 000 2h6a1 1 0 100-2H3zm0 4a1 1 0 100 2h6a1 1 0 100-2H3zm9-3a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zm0 4a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
       name: 'Settings',
       path: '/settings',
       icon: (
@@ -46,14 +57,28 @@ const MobileNav = () => {
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-200 flex">
       {navItems.map((item) => (
-        <Link key={item.path} href={item.path}>
-          <a className={cn(
-            "flex-1 flex flex-col items-center justify-center py-3",
-            location === item.path ? "text-primary" : "text-gray-500 hover:text-gray-700"
+        <Link 
+          key={item.path} 
+          href={item.path} 
+          onClick={() => {
+            // Ensure navigation works properly
+            setTimeout(() => {
+              // Force a re-render to update the active state
+              window.dispatchEvent(new Event('resize'));
+            }, 100);
+          }}
+        >
+          <div className={cn(
+            "flex-1 flex flex-col items-center justify-center py-3 cursor-pointer",
+            location === item.path || 
+            (item.path === '/timeline' && location === '/') || 
+            location.startsWith(item.path)
+              ? "text-primary" 
+              : "text-gray-500 hover:text-gray-700"
           )}>
             {item.icon}
             <span className="text-xs mt-1">{item.name}</span>
-          </a>
+          </div>
         </Link>
       ))}
     </div>

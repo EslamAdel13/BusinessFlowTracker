@@ -17,9 +17,21 @@ export function getInitials(name: string): string {
 }
 
 export function formatDate(date: string | Date): string {
-  if (!date) return "";
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  try {
+    if (!date) return "";
+    
+    const d = typeof date === "string" ? new Date(date) : date;
+    
+    // Check if date is valid
+    if (isNaN(d.getTime())) {
+      return "Invalid date";
+    }
+    
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return "Date formatting error";
+  }
 }
 
 export function formatShortDate(date: string | Date): string {

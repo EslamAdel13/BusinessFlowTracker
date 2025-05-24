@@ -52,12 +52,28 @@ export async function setupVite(app: Express, server: Server) {
         "index.html",
       );
 
+      console.log('Looking for client template at:', clientTemplate);
+      
+      // Check if the file exists
+      if (!fs.existsSync(clientTemplate)) {
+        console.error('Client template not found at:', clientTemplate);
+        return next(new Error('Client template not found'));
+      }
+
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      
+      // Make sure we're looking for the right script tag pattern
+      const scriptPattern = template.includes('src="/src/main.tsx"') 
+        ? 'src="/src/main.tsx"' 
+        : 'src="./src/main.tsx"';
+      
       template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
+        scriptPattern,
+        `src="/src/main.tsx?v=${nanoid()}"`
       );
+      
+      console.log('Template loaded and processed successfully');
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
@@ -68,12 +84,11 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  const distPath = path.resolve(import.meta.dirname, "..", "client", "dist");
 
   if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+    log('Warning: Client build directory not found. Skipping static file serving.');
+    return;
   }
 
   app.use(express.static(distPath));

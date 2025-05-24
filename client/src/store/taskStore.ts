@@ -34,7 +34,7 @@ export const useTaskStore = create<TaskState>()(
         const { data, error } = await supabase
           .from('tasks')
           .select('*')
-          .eq('phaseId', phaseId)
+          .eq('phase_id', phaseId)
           .order('priority', { ascending: true });
           
         if (error) throw error;
@@ -168,8 +168,13 @@ export const useTaskStore = create<TaskState>()(
       const { tasks, filterMode } = get();
       const currentUser = useAuthStore.getState().user;
       
-      // First filter by phaseId
-      const phaseTasks = tasks.filter(task => task.phaseId === phaseId);
+      console.log('Filtering tasks for phase:', phaseId);
+      console.log('Available tasks:', tasks);
+      
+      // First filter by phaseId (using phase_id to match database schema)
+      const phaseTasks = tasks.filter(task => task.phase_id === phaseId);
+      
+      console.log('Filtered tasks for phase:', phaseTasks);
       
       // Then apply user filter if needed
       if (filterMode === 'my' && currentUser) {

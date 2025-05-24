@@ -32,9 +32,7 @@ import {
 
 const projectFormSchema = insertProjectSchema.extend({
   initialPhase: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  ownerId: z.string().optional()
+  owner_id: z.string().optional()
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -65,8 +63,6 @@ export function ProjectForm({ project }: ProjectFormProps) {
       color: project?.color || "#6366F1", // Default to indigo
       owner_id: user?.id ?? '',
       initialPhase: "",
-      startDate: format(new Date(), "yyyy-MM-dd"),
-      endDate: format(addDays(new Date(), 30), "yyyy-MM-dd"),
     },
   });
 
@@ -81,7 +77,7 @@ export function ProjectForm({ project }: ProjectFormProps) {
       }
 
       // Extract initialPhase data before sending to Supabase
-      const { initialPhase, startDate, endDate, ...projectData } = values;
+      const { initialPhase, ...projectData } = values;
 
       console.log('Prepared project data:', { projectData, user });
       console.log('User ID:', user.id);
@@ -146,10 +142,10 @@ export function ProjectForm({ project }: ProjectFormProps) {
       // If there's an initial phase, create it
       if (initialPhase && startDate && endDate) {
         await supabase.from('phases').insert({
-          projectId: data.id,
+          project_id: data.id,
           name: initialPhase,
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
+          start_date: new Date(startDate),
+          end_date: new Date(endDate),
           status: "not_started",
           progress: 0,
         });

@@ -1,43 +1,46 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { useUIStore } from "@/store/uiStore";
 import { useAuth } from "@/lib/auth.tsx";
 import AvatarWithInitials from "@/components/ui/avatar-with-initials";
 import { useCompanySettings } from "@/lib/store";
-import { LayoutGrid, BarChartHorizontal, CheckSquare, BookmarkIcon, InfoIcon } from "lucide-react";
+import { LayoutGrid, BarChartHorizontal, CheckSquare, BookmarkIcon, InfoIcon, GanttChartSquare } from "lucide-react";
 
-export function Sidebar() {
+// Navigation items
+const navItems = [
+  {
+    name: "Timeline",
+    href: "/timeline",
+    icon: <BarChartHorizontal className="h-5 w-5 mr-3" />,
+  },
+  {
+    name: "Tasks",
+    href: "/tasks",
+    icon: <CheckSquare className="h-5 w-5 mr-3" />,
+  },
+  {
+    name: "Projects",
+    href: "/projects",
+    icon: <BookmarkIcon className="h-5 w-5 mr-3" />,
+  },
+  {
+    name: "Roadmap",
+    href: "/roadmap",
+    icon: <GanttChartSquare className="h-5 w-5 mr-3" />,
+  },
+  {
+    name: "Settings",
+    href: "/settings",
+    icon: <InfoIcon className="h-5 w-5 mr-3" />,
+  },
+];
+
+export function SidebarFixed() {
   const [location] = useLocation();
   const { user } = useAuth();
   const { logo } = useCompanySettings();
-  const { toggleSidebar } = useUIStore();
   
-  const navItems = [
-    {
-      name: "Timeline",
-      href: "/timeline",
-      icon: <BarChartHorizontal className="h-5 w-5 mr-3" />,
-    },
-    {
-      name: "Tasks",
-      href: "/tasks",
-      icon: <CheckSquare className="h-5 w-5 mr-3" />,
-    },
-    {
-      name: "Projects",
-      href: "/projects",
-      icon: <BookmarkIcon className="h-5 w-5 mr-3" />,
-    },
-    {
-      name: "Settings",
-      href: "/settings",
-      icon: <InfoIcon className="h-5 w-5 mr-3" />,
-    },
-  ];
-
   return (
-    <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 md:left-0 bg-white border-r border-gray-200 z-30 overflow-y-auto">
-      {/* Desktop Sidebar - Always visible on md and up */}
+    <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 md:left-0 bg-white border-r border-gray-200 z-30">
       <div className="flex items-center justify-center h-16 px-4 border-b border-gray-200">
         <div className="flex items-center space-x-2">
           {logo ? (
@@ -58,22 +61,16 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 px-2 py-4 space-y-1">
+      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => (
           <Link 
             key={item.href} 
             href={item.href}
-            onClick={(e) => {
-              // On mobile, close the sidebar after navigation
-              if (window.innerWidth < 768) {
-                toggleSidebar();
-              }
-            }}
             className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
               location.startsWith(item.href) || 
               (item.href === "/timeline" && location === "/")
-                ? "text-white bg-primary"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                ? "text-white bg-primary-600"
+                : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             {item.icon}
@@ -99,4 +96,4 @@ export function Sidebar() {
   );
 }
 
-export default Sidebar;
+export default SidebarFixed;

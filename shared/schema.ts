@@ -31,18 +31,18 @@ export const projects = pgTable("projects", {
 // Project Members table (for collaboration)
 export const projectMembers = pgTable("project_members", {
   id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull(),
-  userId: text("user_id").notNull(),
+  project_id: integer("project_id").notNull(),
+  user_id: text("user_id").notNull(),
   role: text("role").default('member'),
 });
 
 // Phases table
 export const phases = pgTable("phases", {
   id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull(),
+  project_id: integer("project_id").notNull(),
   name: text("name").notNull(),
-  startDate: timestamp("start_date").notNull(),
-  endDate: timestamp("end_date").notNull(),
+  start_date: timestamp("start_date").notNull(),
+  end_date: timestamp("end_date").notNull(),
   deliverable: text("deliverable"),
   responsible: text("responsible"),
   status: text("status").notNull().default('not_started'), // Using text instead of enum for flexibility
@@ -52,11 +52,11 @@ export const phases = pgTable("phases", {
 // Tasks table
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
-  phaseId: integer("phase_id").notNull(),
-  projectId: integer("project_id").notNull(),
+  phase_id: integer("phase_id").notNull(),
+  project_id: integer("project_id").notNull(),
   name: text("name").notNull(),
   assignee: text("assignee"),
-  dueDate: timestamp("due_date"),
+  due_date: timestamp("due_date"),
   status: text("status").notNull().default('todo'), // Using text instead of enum for flexibility
   priority: integer("priority").default(0),
 });
@@ -74,15 +74,15 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export const insertProjectSchema = createInsertSchema(projects).pick({
   name: true,
   description: true,
-  ownerId: true,
+  owner_id: true,
   color: true,
 });
 
 export const insertPhaseSchema = createInsertSchema(phases).pick({
-  projectId: true,
+  project_id: true,
   name: true,
-  startDate: true,
-  endDate: true,
+  start_date: true,
+  end_date: true,
   deliverable: true,
   responsible: true,
   status: true,
@@ -124,7 +124,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
   owner: one(users, {
-    fields: [projects.ownerId],
+    fields: [projects.owner_id],
     references: [users.email],
     relationName: 'owner'
   }),
@@ -135,7 +135,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 
 export const phasesRelations = relations(phases, ({ one, many }) => ({
   project: one(projects, {
-    fields: [phases.projectId],
+    fields: [phases.project_id],
     references: [projects.id],
     relationName: 'projectPhases'
   }),
@@ -144,12 +144,12 @@ export const phasesRelations = relations(phases, ({ one, many }) => ({
 
 export const tasksRelations = relations(tasks, ({ one }) => ({
   project: one(projects, {
-    fields: [tasks.projectId],
+    fields: [tasks.project_id],
     references: [projects.id],
     relationName: 'projectTasks'
   }),
   phase: one(phases, {
-    fields: [tasks.phaseId],
+    fields: [tasks.phase_id],
     references: [phases.id],
     relationName: 'phaseTasks'
   }),
@@ -157,12 +157,12 @@ export const tasksRelations = relations(tasks, ({ one }) => ({
 
 export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
   project: one(projects, {
-    fields: [projectMembers.projectId],
+    fields: [projectMembers.project_id],
     references: [projects.id],
     relationName: 'projectMembers'
   }),
   user: one(users, {
-    fields: [projectMembers.userId],
+    fields: [projectMembers.user_id],
     references: [users.email],
     relationName: 'memberUser'
   }),

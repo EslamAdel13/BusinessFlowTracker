@@ -80,7 +80,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProjectsByOwner(ownerId: string): Promise<Project[]> {
-    return await db.select().from(projects).where(eq(projects.ownerId, ownerId));
+    return await db.select().from(projects).where(eq(projects.owner_id, ownerId));
   }
 
   async getSharedProjects(userId: string): Promise<Project[]> {

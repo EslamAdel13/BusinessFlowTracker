@@ -14,17 +14,17 @@ import { useAuthStore } from '@/store/authStore';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Phase name is required' }),
-  startDate: z.string().min(1, { message: 'Start date is required' }),
-  endDate: z.string().min(1, { message: 'End date is required' }),
+  start_date: z.string().min(1, { message: 'Start date is required' }),
+  end_date: z.string().min(1, { message: 'End date is required' }),
   deliverable: z.string().optional(),
   responsible: z.string().optional(),
 }).refine(data => {
-  const start = new Date(data.startDate);
-  const end = new Date(data.endDate);
+  const start = new Date(data.start_date);
+  const end = new Date(data.end_date);
   return end >= start;
 }, {
   message: "End date must be after start date",
-  path: ["endDate"]
+  path: ["end_date"]
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -43,8 +43,8 @@ const CreatePhaseModal = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      startDate: '',
-      endDate: '',
+      start_date: '',
+      end_date: '',
       deliverable: '',
       responsible: userName,
     },
@@ -70,10 +70,10 @@ const CreatePhaseModal = () => {
       }
       
       await createPhase({
-        projectId: selectedProject.id,
+        project_id: selectedProject.id,
         name: values.name,
-        startDate: new Date(values.startDate).toISOString(),
-        endDate: new Date(values.endDate).toISOString(),
+        start_date: new Date(values.start_date).toISOString(),
+        end_date: new Date(values.end_date).toISOString(),
         deliverable: values.deliverable || `Deliverable for ${values.name}`,
         responsible: values.responsible || userName,
         status: 'not_started',
@@ -124,7 +124,7 @@ const CreatePhaseModal = () => {
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="startDate"
+                name="start_date"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Start Date</FormLabel>
@@ -138,7 +138,7 @@ const CreatePhaseModal = () => {
               
               <FormField
                 control={form.control}
-                name="endDate"
+                name="end_date"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>End Date</FormLabel>

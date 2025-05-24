@@ -179,8 +179,8 @@ export const useProjectStore = create<ProjectState>()(
         const { data, error } = await supabase
           .from('phases')
           .select('*')
-          .eq('projectId', projectId)
-          .order('startDate', { ascending: true });
+          .eq('project_id', projectId)
+          .order('start_date', { ascending: true });
           
         if (error) throw error;
         
@@ -231,6 +231,21 @@ export const useProjectStore = create<ProjectState>()(
         const selectedPhase = get().selectedPhase;
         if (selectedPhase && selectedPhase.id === id) {
           set({ selectedPhase: { ...selectedPhase, ...data } });
+        }
+        
+        // Get the phase to find its project_id
+        const { data: phaseData } = await supabase
+          .from('phases')
+          .select('*')
+          .eq('id', id)
+          .single();
+          
+        if (phaseData && phaseData.project_id) {
+          // Refresh the phases for this project
+          await get().fetchPhases(phaseData.project_id);
+          
+          // Refresh projects to update any UI that depends on project data
+          await get().fetchProjects();
         }
         
         set({ isLoading: false });
