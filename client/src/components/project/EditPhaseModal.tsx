@@ -26,29 +26,47 @@ const EditPhaseModal: React.FC<EditPhaseModalProps> = ({ phase, isOpen, onClose 
     { color: '#06b6d4' }, // Cyan
   ];
   const [color, setColor] = useState(phase?.color || phaseColorOptions[0].color);
-  const [startDate, setStartDate] = useState(phase?.start_date || '');
-  const [endDate, setEndDate] = useState(phase?.end_date || '');
+  const [startDate, setStartDate] = useState(phase?.start_date ? new Date(phase.start_date).toISOString().split('T')[0] : '');
+  const [endDate, setEndDate] = useState(phase?.end_date ? new Date(phase.end_date).toISOString().split('T')[0] : '');
+  const [dateError, setDateError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (phase) {
       setName(phase.name || '');
       setColor(phase.color || '#007bff');
-      setStartDate(phase.start_date || '');
-      setEndDate(phase.end_date || '');
+      setStartDate(phase.start_date ? new Date(phase.start_date).toISOString().split('T')[0] : '');
+      setEndDate(phase.end_date ? new Date(phase.end_date).toISOString().split('T')[0] : '');
     }
   }, [phase]);
 
   const handleSave = () => {
     if (!phase) return;
-    updatePhase({
+
+    const payload = {
       ...phase,
       name,
       color,
-      start_date: startDate,
-      end_date: endDate,
-    });
+      // Ensure dates are valid ISO strings or null if empty
+      start_date: startDate ? new Date(startDate).toISOString() : null,
+      end_date: endDate ? new Date(endDate).toISOString() : null,
+    };
+
+    console.log('[EditPhaseModal] handleSave - payload:', JSON.stringify(payload, null, 2));
+
+    // Basic validation: ensure end date is not before start date if both are provided
+    if (payload.start_date && payload.end_date && new Date(payload.end_date) < new Date(payload.start_date)) {
+      setDateError('End date cannot be before start date.');
+      return;
+    } else {
+      setDateError(null); // Clear error if validation passes
+    }
+
+    updatePhase(phase.id, payload);
     onClose();
   };
+
+  // The original updatePhase call is removed from here and replaced by the lines above
+
 
   if (!isOpen || !phase) return null;
 
@@ -91,7 +109,10 @@ const EditPhaseModal: React.FC<EditPhaseModalProps> = ({ phase, isOpen, onClose 
           <input
             type="date"
             value={startDate}
-            onChange={e => setStartDate(e.target.value)}
+            onChange={e => {
+              setStartDate(e.target.value);
+              setDateError(null); // Clear error on change
+            }}
             className="w-full border rounded px-2 py-1"
           />
         </div>
@@ -100,9 +121,13 @@ const EditPhaseModal: React.FC<EditPhaseModalProps> = ({ phase, isOpen, onClose 
           <input
             type="date"
             value={endDate}
-            onChange={e => setEndDate(e.target.value)}
+            onChange={e => {
+              setEndDate(e.target.value);
+              setDateError(null); // Clear error on change
+            }}
             className="w-full border rounded px-2 py-1"
           />
+          {dateError && <p className="text-red-500 text-xs mt-1">{dateError}</p>}
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <button onClick={onClose} className="px-3 py-1 rounded bg-gray-200">Cancel</button>

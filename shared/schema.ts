@@ -47,6 +47,7 @@ export const phases = pgTable("phases", {
   responsible: text("responsible"),
   status: text("status").notNull().default('not_started'), // Using text instead of enum for flexibility
   progress: integer("progress").default(0),
+  color: text("color").default('#808080'), // Default color for new phases
 });
 
 // Tasks table
@@ -87,6 +88,7 @@ export const insertPhaseSchema = createInsertSchema(phases).pick({
   responsible: true,
   status: true,
   progress: true,
+  color: true,
 });
 
 export const insertTaskSchema = createInsertSchema(tasks).pick({

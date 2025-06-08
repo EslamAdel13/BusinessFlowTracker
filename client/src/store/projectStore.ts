@@ -218,7 +218,7 @@ export const useProjectStore = create<ProjectState>()(
     },
     
     updatePhase: async (id, data) => {
-      console.log(`[projectStore] updatePhase - START - id: ${id}, data:`, JSON.parse(JSON.stringify(data)));
+      console.log(`[projectStore] updatePhase - START - id: ${id}, data:\n`, JSON.stringify(data, null, 2));
       try {
         set({ isLoading: true, error: null });
         const { error } = await supabase
