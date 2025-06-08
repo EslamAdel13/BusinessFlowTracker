@@ -178,10 +178,10 @@ const ProjectTimeline = () => {
       {/* Desktop Timeline */}
       <div className="hidden md:block px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          {/* Timeline Header */}
-          <div className="border-b border-gray-200">
+          {/* Timeline Header - Fixed to prevent scrolling with content */}
+          <div className="border-b border-gray-200 sticky top-0 bg-white z-20">
             <div className="flex">
-              <div className="w-64 pl-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div className="w-64 pl-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-white z-10">
                 Project
               </div>
               <div className="flex-1 overflow-x-auto custom-scrollbar">
@@ -191,12 +191,13 @@ const ProjectTimeline = () => {
           </div>
           
           {/* Project Rows & Gantt Chart */}
-          <div className="timeline-container">
+          <div className="timeline-container relative">
             <div className="custom-scrollbar" style={{ 
               maxHeight: 'calc(100vh - 260px)', 
               overflowY: 'auto', 
               overflowX: 'auto',
-              width: '100%'
+              width: '100%',
+              minWidth: `${months.length * 100 + 256}px` // 256px for project name column
             }}>
               {isLoading ? (
                 renderSkeletonRows()
@@ -207,6 +208,7 @@ const ProjectTimeline = () => {
                     project={project} 
                     phases={projectPhases[project.id] || []} 
                     timelineStartDate={timelineStartDate}
+                    monthWidth={100}
                   />
                 ))
               )}

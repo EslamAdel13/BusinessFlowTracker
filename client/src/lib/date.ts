@@ -1,6 +1,6 @@
 // Helper functions for date calculations and manipulation
 
-import { addMonths, format, differenceInDays, startOfMonth, endOfMonth, isBefore, isAfter } from 'date-fns';
+import { addMonths, format, differenceInDays, startOfMonth, endOfMonth, isBefore, isAfter, differenceInMonths, getDaysInMonth, isSameMonth } from 'date-fns';
 import dayjs from 'dayjs';
 
 // Get month index (0-11) from a date string
@@ -39,7 +39,7 @@ export function calculatePhasePosition(
   startDate: string | Date,
   endDate: string | Date,
   timelineStartDate: Date = new Date(),
-  monthWidth: number = 120
+  monthWidth: number = 100
 ): PhasePosition {
   // Handle potential invalid dates
   try {
@@ -60,9 +60,9 @@ export function calculatePhasePosition(
     }
 
     const timelineStart = startOfMonth(timelineStartDate);
-    const timelineEnd = endOfMonth(addMonths(timelineStart, 11));
+    const timelineEnd = endOfMonth(addMonths(timelineStart, 11)); // 12 months timeline
   
-    // If phase is outside of the timeline, don't show it
+    // If phase is completely outside of the timeline, don't show it
     if (isAfter(start, timelineEnd) || isBefore(end, timelineStart)) {
       return { left: 0, width: 0 };
     }
@@ -71,33 +71,20 @@ export function calculatePhasePosition(
     const adjustedStart = isBefore(start, timelineStart) ? timelineStart : start;
     const adjustedEnd = isAfter(end, timelineEnd) ? timelineEnd : end;
     
-    // Calculate days from timeline start
-    const daysFromStart = differenceInDays(adjustedStart, timelineStart);
-    const phaseDuration = differenceInDays(adjustedEnd, adjustedStart) + 1; // +1 to include the end day
+    // Calculate months from timeline start (more accurate for month-based timeline)
+    const monthsFromStart = differenceInMonths(adjustedStart, timelineStart) + 
+                           (differenceInDays(adjustedStart, startOfMonth(adjustedStart)) / getDaysInMonth(adjustedStart));
     
-    // Calculate position and width with more precision
-    // Get the exact number of days in the timeline period
-    const totalTimelineDays = differenceInDays(timelineEnd, timelineStart);
-    const totalTimelineWidth = monthWidth * 12; // 12 months in the timeline
+    // Calculate phase duration in months (including partial months)
+    const phaseDurationMonths = differenceInMonths(adjustedEnd, adjustedStart) + 
+                              (differenceInDays(adjustedEnd, startOfMonth(adjustedEnd)) / getDaysInMonth(adjustedEnd)) -
+                              (differenceInDays(adjustedStart, startOfMonth(adjustedStart)) / getDaysInMonth(adjustedStart)) +
+                              (isSameMonth(adjustedStart, adjustedEnd) ? 
+                                (differenceInDays(adjustedEnd, adjustedStart) + 1) / getDaysInMonth(adjustedStart) : 0);
     
-    // Calculate pixels per day for more accurate positioning
-    const pixelsPerDay = totalTimelineWidth / totalTimelineDays;
-    
-    // Calculate position with more precision
-    const left = daysFromStart * pixelsPerDay;
-    const width = phaseDuration * pixelsPerDay;
-    
-    console.log('Phase alignment calculation:', {
-      phase: 'Phase calculation',
-      start: adjustedStart.toISOString(),
-      end: adjustedEnd.toISOString(),
-      timelineStart: timelineStart.toISOString(),
-      daysFromStart,
-      phaseDuration,
-      pixelsPerDay,
-      left,
-      width
-    });
+    // Calculate position based on months (more accurate for month-based timeline)
+    const left = monthsFromStart * monthWidth;
+    const width = Math.max(phaseDurationMonths * monthWidth, 1); // Ensure minimum width of 1px
     
     return { left, width };
   } catch (error) {

@@ -3,16 +3,17 @@ import { Project, Phase } from '@shared/schema';
 import { Button } from '@/components/ui/button';
 import { useProjectStore } from '@/store/projectStore';
 import { useUIStore } from '@/store/uiStore';
-import PhaseBar from './PhaseBar';
+import DraggablePhaseBar from './DraggablePhaseBar';
 import CreatePhaseModal from './CreatePhaseModal';
 
 interface ProjectRowProps {
   project: Project;
   phases: Phase[];
   timelineStartDate: Date;
+  monthWidth?: number;
 }
 
-const ProjectRow: FC<ProjectRowProps> = ({ project, phases, timelineStartDate }) => {
+const ProjectRow: FC<ProjectRowProps> = ({ project, phases, timelineStartDate, monthWidth = 100 }) => {
   const { selectProject, selectPhase } = useProjectStore();
   const { openModal } = useUIStore();
   
@@ -24,6 +25,7 @@ const ProjectRow: FC<ProjectRowProps> = ({ project, phases, timelineStartDate })
   
   const handleAddPhase = (e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log('Add Phase clicked for project:', project);
     selectProject(project);
     openModal('createPhase');
   };
@@ -45,12 +47,13 @@ const ProjectRow: FC<ProjectRowProps> = ({ project, phases, timelineStartDate })
         </div>
         
         <div className="flex-1 relative">
-          <div className="timeline-months" style={{ height: '60px', position: 'relative' }}>
+          <div className="timeline-months" style={{ height: '60px', position: 'relative', width: `${phases.length ? phases.length * monthWidth : 12 * monthWidth}px`, minWidth: `${12 * monthWidth}px` }}>
             {phases.map((phase) => (
-              <PhaseBar
+              <DraggablePhaseBar
                 key={phase.id}
                 phase={phase}
                 timelineStartDate={timelineStartDate}
+                monthWidth={monthWidth}
                 onClick={() => {
                   selectPhase(phase);
                   openModal('taskDrawer');

@@ -5,11 +5,13 @@ import { calculatePhasePosition, positionToDate } from '@/lib/date';
 import { formatShortDate } from '@/lib/utils';
 import { useProjectStore } from '@/store/projectStore';
 import { cn } from '@/lib/utils';
+import { Pencil } from 'lucide-react';
 
 interface DraggablePhaseBarProps {
   phase: Phase;
   timelineStartDate: Date;
   onClick: () => void;
+  onEditClick: () => void;
   monthWidth: number;
 }
 
@@ -17,6 +19,7 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
   phase, 
   timelineStartDate, 
   onClick,
+  onEditClick,
   monthWidth = 120
 }) => {
   const phaseRef = useRef<HTMLDivElement>(null);
@@ -39,16 +42,6 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
         timelineStartDate,
         monthWidth
       );
-      console.log('DraggablePhaseBar:', {
-        phaseId: phase.id,
-        name: phase.name,
-        left,
-        width,
-        start: phase.start_date,
-        end: phase.end_date,
-        timelineStartDate,
-        monthWidth
-      });
       setPosition({ left, width });
       setOriginalDates({
         start: new Date(phase.start_date),
@@ -57,7 +50,17 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
     }
   }, [phase, phase.start_date, phase.end_date, timelineStartDate, monthWidth]);
 
-  // Get phase color based on ID for visual variety
+  const cancelDragOperation = () => {
+    if (isDragging || isResizingLeft || isResizingRight) {
+      console.log('[DraggablePhaseBar] cancelDragOperation: Cancelling drag/resize state.');
+      setIsDragging(false);
+      setIsResizingLeft(false);
+      setIsResizingRight(false);
+    }
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+
   const getPhaseColor = () => {
     const phaseColors = [
       'bg-chart-1',  // Blue
@@ -76,13 +79,12 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
     return phaseColors[colorIndex];
   };
 
-  // Helper function to convert position to date with the current timeline context
   const convertPositionToDate = (posX: number): Date => {
     return positionToDate(posX, timelineStartDate, monthWidth);
   };
   
-  // Handle mouse events for dragging and resizing
   const handleMouseDown = (e: React.MouseEvent, action: 'drag' | 'resizeLeft' | 'resizeRight') => {
+    console.log(`[DraggablePhaseBar] handleMouseDown: action=${action}, current states: isDragging=${isDragging}, isResizingLeft=${isResizingLeft}, isResizingRight=${isResizingRight}`);
     e.stopPropagation();
     
     if (action === 'drag') {
@@ -93,13 +95,11 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
       setIsResizingRight(true);
     }
     
-    // Save original dates for reference
     setOriginalDates({
       start: new Date(phase.start_date || new Date()),
       end: new Date(phase.end_date || new Date())
     });
     
-    // Add event listeners
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
@@ -107,114 +107,82 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
   const handleMouseMove = (e: MouseEvent) => {
     if (!phaseRef.current || (!isDragging && !isResizingLeft && !isResizingRight)) return;
     
-    // Get timeline container for relative positioning
     const timelineContainer = phaseRef.current.closest('.timeline-months');
     if (!timelineContainer) return;
     
     const timelineRect = timelineContainer.getBoundingClientRect();
     const phaseRect = phaseRef.current.getBoundingClientRect();
     
-    // Calculate mouse position relative to timeline
     const mouseX = e.clientX - timelineRect.left;
     
     if (isDragging) {
-      // Move the entire phase
       const newLeft = mouseX - (phaseRect.width / 2);
       
-      // Ensure phase stays within timeline bounds
-      const boundedLeft = Math.max(0, Math.min(newLeft, timelineRect.width - phaseRect.width));
-      
-      setPosition(prev => ({ ...prev, left: boundedLeft }));
-      
-      // Update dates based on new position
-      const newStartDate = convertPositionToDate(boundedLeft);
-      const durationMs = originalDates.end.getTime() - originalDates.start.getTime();
-      const newEndDate = new Date(newStartDate.getTime() + durationMs);
-      
-      // Don't update the database on every mouse move, just visual feedback
+      setPosition(prev => ({ ...prev, left: Math.max(0, newLeft) }));
     } else if (isResizingLeft) {
-      // Resize from left edge
-      const newLeft = mouseX;
-      const newWidth = position.left + position.width - newLeft;
+      const currentRightEdge = position.left + position.width;
+      const newLeft = Math.max(0, mouseX);
+      const newWidth = currentRightEdge - newLeft;
       
-      // Ensure minimum width and within bounds
-      if (newWidth >= 60 && newLeft >= 0) {
+      if (newWidth > 20) { 
         setPosition({ left: newLeft, width: newWidth });
-        
-        // Update start date based on new position
-        const newStartDate = convertPositionToDate(newLeft);
-        
-        // Don't update the database on every mouse move, just visual feedback
       }
     } else if (isResizingRight) {
-      // Resize from right edge
       const newWidth = mouseX - position.left;
       
-      // Ensure minimum width and within bounds
-      if (newWidth >= 60 && position.left + newWidth <= timelineRect.width) {
+      if (newWidth > 20) { 
         setPosition(prev => ({ ...prev, width: newWidth }));
-        
-        // Update end date based on new position
-        const newEndDate = convertPositionToDate(position.left + newWidth);
-        
-        // Don't update the database on every mouse move, just visual feedback
       }
     }
   };
 
   const handleMouseUp = async () => {
+    console.log(`[DraggablePhaseBar] handleMouseUp: Entry. States: isDragging=${isDragging}, isResizingLeft=${isResizingLeft}, isResizingRight=${isResizingRight}`);
     if (isDragging || isResizingLeft || isResizingRight) {
       try {
-        // Calculate new dates based on final position
-        const newStartDate = convertPositionToDate(position.left);
-        const newEndDate = convertPositionToDate(position.left + position.width);
+        let newStartDate = convertPositionToDate(position.left);
+        let newEndDate = convertPositionToDate(position.left + position.width);
         
-        // Ensure end date is after start date
         if (newEndDate <= newStartDate) {
-          // Add at least one day to end date
-          newEndDate.setDate(newStartDate.getDate() + 1);
+          newEndDate = new Date(newStartDate.getTime() + (24 * 60 * 60 * 1000));
         }
-        
-        console.log('Saving phase position:', {
-          phase_id: phase.id,
-          start_date: newStartDate.toISOString(),
-          end_date: newEndDate.toISOString(),
-          position
-        });
-        
-        // Update phase in database
-        await updatePhase(phase.id, {
-          start_date: newStartDate.toISOString(),
-          end_date: newEndDate.toISOString()
-        });
-        
-        // Update local state to reflect the changes
-        setOriginalDates({
-          start: newStartDate,
-          end: newEndDate
-        });
-        
-        // Force a position recalculation
-        const { left, width } = calculatePhasePosition(
-          newStartDate,
-          newEndDate,
-          timelineStartDate,
-          monthWidth
-        );
-        setPosition({ left, width });
-        
-        console.log('Phase position saved successfully');
+
+        const originalStartMs = originalDates.start.getTime();
+        const originalEndMs = originalDates.end.getTime();
+        const newStartMs = newStartDate.getTime();
+        const newEndMs = newEndDate.getTime();
+
+        if (newStartMs !== originalStartMs || newEndMs !== originalEndMs) {
+          console.log('[DraggablePhaseBar] handleMouseUp: Dates changed, saving phase position:', { 
+            phase_id: phase.id, 
+            new_start: newStartDate.toISOString(), new_end: newEndDate.toISOString(), 
+            original_start: originalDates.start.toISOString(), original_end: originalDates.end.toISOString()
+          });
+          await updatePhase(phase.id, {
+            start_date: newStartDate.toISOString(),
+            end_date: newEndDate.toISOString()
+          });
+          setOriginalDates({ start: newStartDate, end: newEndDate }); 
+          const { left, width } = calculatePhasePosition(
+            newStartDate,
+            newEndDate,
+            timelineStartDate,
+            monthWidth
+          );
+          setPosition({left, width});
+          console.log('[DraggablePhaseBar] Phase position saved successfully (updatePhase called).');
+        } else {
+          console.log('[DraggablePhaseBar] handleMouseUp: No date change detected after drag/resize. Not saving.');
+          const { left, width } = calculatePhasePosition(originalDates.start, originalDates.end, timelineStartDate, monthWidth);
+          setPosition({left, width});
+        }
       } catch (error) {
-        console.error('Failed to save phase position:', error);
+        console.error('[DraggablePhaseBar] Error saving/recalculating phase position in handleMouseUp:', error instanceof Error ? { message: error.message, stack: error.stack, name: error.name } : JSON.stringify(error));
       }
-      
-      // Reset state
-      setIsDragging(false);
-      setIsResizingLeft(false);
-      setIsResizingRight(false);
     }
-    
-    // Remove event listeners
+    setIsDragging(false);
+    setIsResizingLeft(false);
+    setIsResizingRight(false);
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   };
@@ -235,9 +203,9 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
             style={{
               left: `${Math.max(0, position.left)}px`,
               width: `${Math.max(60, position.width)}px`,
-              minWidth: position.width === 0 ? '60px' : 'auto',
+              minWidth: position.width === 0 ? '60px' : 'auto', 
               height: '28px',
-              backgroundColor: phase.color || '',
+              backgroundColor: phase.color || '', 
               transition: isDragging || isResizingLeft || isResizingRight ? 'none' : 'all 0.2s ease'
             }}
             onClick={(e) => {
@@ -254,8 +222,23 @@ const DraggablePhaseBar: FC<DraggablePhaseBarProps> = ({
             />
             
             {/* Phase content */}
-            <span className="px-2 truncate">{phase.name}</span>
+            <span className="px-2 truncate flex-grow">{phase.name}</span>
             
+            {/* Edit Icon Button */}
+            <button 
+              className="p-1 hover:bg-black/20 rounded-full focus:outline-none mr-1 z-20"
+              onClick={(e) => {
+                e.stopPropagation(); 
+                console.log('[DraggablePhaseBar] Edit button clicked. Cancelling any drag operation.');
+                cancelDragOperation();
+                onEditClick();
+              }}
+              onMouseDown={(e) => e.stopPropagation()} 
+              title="Edit Phase"
+            >
+              <Pencil size={14} className="text-white/80 hover:text-white" />
+            </button>
+
             {/* Right resize handle */}
             <div 
               className="absolute right-0 top-0 w-2 h-full cursor-e-resize z-20"

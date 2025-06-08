@@ -6,7 +6,9 @@ import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
-import { monthIndex, statusColor } from '@/lib/date';
+import { monthIndex } from '@/lib/date'; // statusColor might be handled by DraggablePhaseBar if it uses phase.color
+import DraggablePhaseBar from './DraggablePhaseBar';
+import EditPhaseModal from './EditPhaseModal';
 
 // Extend dayjs with plugins
 dayjs.extend(isSameOrBefore);
@@ -24,16 +26,24 @@ const RoadmapTimeline: FC<RoadmapTimelineProps> = ({
   phases,
   timelineStartDate = new Date(new Date().getFullYear(), 0, 1) // Default to Jan 1st of current year
 }) => {
-  const { selectProject, selectPhase } = useProjectStore();
-  const { openModal } = useUIStore();
+  const { selectProject, selectPhase, fetchPhases } = useProjectStore();
+  const { openModal, activeModal, closeModal } = useUIStore();
   
-  // Generate a simpler timeline with 3 months and 4 weeks per month
+  const [editPhase, setEditPhase] = useState(null);
+  const [isEditModalOpen, setEditModalOpen] = useState(false);
+  const [currentEditingPhase, setCurrentEditingPhase] = useState<Phase | null>(null);
+
+  const weekPixelWidth = 80; // Define standard width for a week column in pixels
+  const dayPixelWidth = weekPixelWidth / 7;
+  const effectiveMonthWidthForDraggableBar = dayPixelWidth * 30.44; // Approx. days in a month
+
+  // Generate a timeline with 12 months and 4 weeks per month
   const generateTimelineHeaders = () => {
     const result = [];
     const startMonth = dayjs(timelineStartDate);
     
-    // Generate 3 months with fixed 4 weeks per month for simplicity
-    for (let monthOffset = 0; monthOffset < 3; monthOffset++) {
+    // Generate 12 months with fixed 4 weeks per month for simplicity
+    for (let monthOffset = 0; monthOffset < 12; monthOffset++) {
       const currentMonth = startMonth.add(monthOffset, 'month');
       const monthName = currentMonth.format('MMM').toUpperCase();
       const weeksInMonth = [1, 2, 3, 4]; // Fixed 4 weeks per month for simplicity
@@ -138,8 +148,28 @@ const RoadmapTimeline: FC<RoadmapTimelineProps> = ({
   };
 
   const handlePhaseClick = (phase: Phase) => {
+    // If edit modal is open for this phase, don't open task drawer
+    if (isEditModalOpen && currentEditingPhase?.id === phase.id) return;
     selectPhase(phase);
     openModal('taskDrawer');
+  };
+
+  const handleOpenEditModal = (phase: Phase) => {
+    // e.stopPropagation(); // No longer needed here, DraggablePhaseBar handles its button's event propagation
+    setCurrentEditingPhase(phase);
+    setEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false);
+    setCurrentEditingPhase(null);
+    // Optionally, refetch phases if an edit might have occurred
+    // projects.forEach(p => fetchPhases(p.id)); 
+  };
+
+  const handlePhaseClickOriginal = (phase: Phase) => {
+    setEditPhase(phase);
+    setEditModalOpen(true);
   };
 
   const handleEditProject = (e: React.MouseEvent, project: Project) => {
@@ -164,12 +194,13 @@ const RoadmapTimeline: FC<RoadmapTimelineProps> = ({
   }, [timelineHeaders]);
   
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto w-full" data-component-name="RoadmapTimeline">
       {/* HEADER ROW - MONTHS */}
       <div
         className="grid w-max sticky top-0 bg-white z-20"
         style={{
-          gridTemplateColumns: `200px repeat(${totalWeekColumns}, minmax(80px, 1fr))` /* 1st col = project label, then 1 col per week */
+          gridTemplateColumns: `200px repeat(${totalWeekColumns}, minmax(80px, 1fr))`,
+          minWidth: `${200 + totalWeekColumns * 80}px`,
         }}
       >
         <div className="font-semibold px-4 py-2 border-b border-r">PROJECT</div>
@@ -192,7 +223,8 @@ const RoadmapTimeline: FC<RoadmapTimelineProps> = ({
       <div
         className="grid w-max sticky top-10 bg-white z-20"
         style={{
-          gridTemplateColumns: `200px repeat(${totalWeekColumns}, minmax(80px, 1fr))` /* 1st col = project label, then 1 col per week */
+          gridTemplateColumns: `200px repeat(${totalWeekColumns}, minmax(80px, 1fr))`,
+          minWidth: `${200 + totalWeekColumns * 80}px`,
         }}
       >
         <div className="font-semibold px-4 py-1 text-xs border-b border-r">TIMELINE</div>
@@ -214,13 +246,15 @@ const RoadmapTimeline: FC<RoadmapTimelineProps> = ({
       {projects.map(project => (
         <div
           key={project.id}
-          className="relative grid w-max border-b"
+          className="relative grid w-max border-b min-h-[3.5rem]" // Added min-h for row height
           style={{
-            gridTemplateColumns: `200px repeat(${totalWeekColumns}, minmax(80px, 1fr))`
+            gridTemplateColumns: `200px repeat(${totalWeekColumns}, minmax(${weekPixelWidth}px, 1fr))`,
+            minWidth: `${200 + totalWeekColumns * weekPixelWidth}px`,
           }}
         >
           {/* Project label with fixed action buttons */}
-          <div className="flex items-center justify-between px-4 py-2 border-r sticky left-0 bg-white z-10">
+          {/* Column 1: Project Label */}
+          <div className="flex items-center justify-between px-4 py-2 border-r sticky left-0 bg-white z-10 row-start-1 h-full">
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full" style={{background: project.color || '#6366f1'}}/>
               <span className="text-sm font-medium truncate max-w-[120px]">{project.name}</span>
@@ -245,65 +279,35 @@ const RoadmapTimeline: FC<RoadmapTimelineProps> = ({
             </div>
           </div>
 
-          {/* Empty grid cells for each week (just placeholders) */}
-          {Array.from({ length: totalWeekColumns }).map((_, index) => (
-            <div key={`${project.id}-week-${index}`} className="border-r border-gray-100 h-14"/>
+          {/* Column 2 onwards: Timeline Area Background Grid Cells */}
+          {Array.from({ length: totalWeekColumns }).map((_, weekIndex) => (
+            <div
+              key={`${project.id}-week-bg-${weekIndex}`}
+              className="border-r border-gray-100 h-full" // Use h-full to match row height
+              style={{ gridColumnStart: weekIndex + 2, gridRowStart: 1 }}
+            />
           ))}
 
-          {/* Phase bars (absolute so they sit on top of grid) */}
-          {phases[project.id]?.map(phase => {
-            // Ensure we have valid dates
-            if (!phase.start_date || !phase.end_date) {
-              console.warn(`Phase ${phase.id} has missing dates`);
-              return null;
-            }
-            
-            const startDate = new Date(phase.start_date);
-            const endDate = new Date(phase.end_date);
-            
-            // Calculate precise grid positions using our helper function
-            const startPosition = calculateGridPosition(startDate);
-            const endPosition = calculateGridPosition(endDate);
-            
-            // Ensure minimum width for very short phases
-            const minWidth = 0.5; // Half a column width minimum
-            const gridSpan = Math.max(minWidth, endPosition - startPosition);
-            
-            // Format dates for tooltip
-            const startDateFormatted = dayjs(startDate).format('MMM D, YYYY');
-            const endDateFormatted = dayjs(endDate).format('MMM D, YYYY');
-            const duration = dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
-            
-            // Check if phase is within our 3-month view
-            const threeMonthsLater = dayjs(timelineStartDate).add(3, 'month');
-            const isVisible = (
-              (dayjs(startDate).isAfter(dayjs(timelineStartDate)) || dayjs(startDate).isSame(dayjs(timelineStartDate))) &&
-              (dayjs(startDate).isBefore(threeMonthsLater) || dayjs(endDate).isBefore(threeMonthsLater))
-            );
-            
-            if (!isVisible) return null;
-            
-            return (
-              <div
+          {/* Container for DraggablePhaseBars, overlaid on the timeline area */}
+          <div
+            className="relative row-start-1 h-full" // Occupy the first row, full height
+            style={{ gridColumn: `2 / span ${totalWeekColumns}` }} // Span all timeline columns
+          >
+            {phases[project.id]?.map((phase) => (
+              <DraggablePhaseBar
                 key={phase.id}
-                className="absolute h-8 flex items-center justify-center text-xs font-medium text-white rounded cursor-pointer shadow-sm hover:shadow transition-all"
-                style={{
-                  gridColumnStart: startPosition,
-                  gridColumnEnd: `span ${gridSpan}`,
-                  top: '0.75rem', // Center vertically in the row
-                  background: phase.color || statusColor(phase.status),
-                  zIndex: 10,
-                  minWidth: '60px' // Ensure minimum width for very short phases
-                }}
+                phase={phase}
+                timelineStartDate={timelineStartDate}
+                monthWidth={effectiveMonthWidthForDraggableBar}
                 onClick={() => handlePhaseClick(phase)}
-                title={`${phase.name}\nStart: ${startDateFormatted}\nEnd: ${endDateFormatted}\nDuration: ${duration} days\n${phase.deliverable ? `Deliverable: ${phase.deliverable}` : ''}\n${phase.responsible ? `Responsible: ${phase.responsible}` : ''}`}
-              >
-                <span className="px-2 truncate">{phase.name}</span>
-              </div>
-            );
-          })}
+                onEditClick={() => handleOpenEditModal(phase)}
+              />
+            ))}
+          </div>
+
         </div>
       ))}
+      <EditPhaseModal phase={currentEditingPhase} isOpen={isEditModalOpen} onClose={handleCloseEditModal} />
     </div>
   );
 };

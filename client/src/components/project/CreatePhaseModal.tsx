@@ -35,7 +35,10 @@ const CreatePhaseModal = () => {
   const { activeModal, closeModal } = useUIStore();
   const { toast } = useToast();
   
-  const isOpen = activeModal === 'createPhase';
+  const isOpen = activeModal === 'createPhase' && !!selectedProject;
+  if (activeModal === 'createPhase') {
+    console.log('CreatePhaseModal: activeModal=createPhase, selectedProject=', selectedProject);
+  }
   
   const userName = user?.user_metadata?.full_name || user?.email || 'Project Owner';
   

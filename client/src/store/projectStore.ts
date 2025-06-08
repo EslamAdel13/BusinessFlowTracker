@@ -218,6 +218,7 @@ export const useProjectStore = create<ProjectState>()(
     },
     
     updatePhase: async (id, data) => {
+      console.log(`[projectStore] updatePhase - START - id: ${id}, data:`, JSON.parse(JSON.stringify(data)));
       try {
         set({ isLoading: true, error: null });
         const { error } = await supabase
@@ -225,7 +226,11 @@ export const useProjectStore = create<ProjectState>()(
           .update(data)
           .eq('id', id);
           
-        if (error) throw error;
+        if (error) {
+          console.error(`[projectStore] updatePhase - Supabase update error for id: ${id}:`, error);
+          throw error;
+        }
+        console.log(`[projectStore] updatePhase - Supabase update successful for id: ${id}`);
         
         // If we have the selectedPhase and it's being updated
         const selectedPhase = get().selectedPhase;
@@ -242,14 +247,20 @@ export const useProjectStore = create<ProjectState>()(
           
         if (phaseData && phaseData.project_id) {
           // Refresh the phases for this project
+          console.log(`[projectStore] updatePhase - About to call fetchPhases(${phaseData.project_id}) for phase id: ${id}`);
           await get().fetchPhases(phaseData.project_id);
+          console.log(`[projectStore] updatePhase - fetchPhases(${phaseData.project_id}) completed for phase id: ${id}`);
           
           // Refresh projects to update any UI that depends on project data
+          console.log(`[projectStore] updatePhase - About to call fetchProjects() for phase id: ${id}`);
           await get().fetchProjects();
+          console.log(`[projectStore] updatePhase - fetchProjects() completed for phase id: ${id}`);
         }
         
         set({ isLoading: false });
+        console.log(`[projectStore] updatePhase - END - id: ${id}`);
       } catch (error: any) {
+        console.error(`[projectStore] updatePhase - ERROR CAUGHT for id: ${id}:`, error);
         set({ 
           isLoading: false, 
           error: error.message || 'Failed to update phase' 
