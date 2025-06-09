@@ -177,7 +177,7 @@ const Roadmap = () => {
       </div>
       
       <CreateProjectModal />
-      <EditProjectModal />
+      <EditProjectModal projectPhases={selectedProject ? projectPhases[selectedProject.id] : undefined} />
       <CreatePhaseModal />
     </>
   );

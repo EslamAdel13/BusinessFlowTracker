@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import LogoUpload from '@/components/ui/logo-upload';
 
 const Settings = () => {
-  const { user } = useAuthStore();
+  const { user, updateUserMetadata } = useAuthStore();
   const { timelineStartDate, setTimelineStartDate, companyLogo, accentColor } = useUIStore();
   const { toast } = useToast();
   const [displayName, setDisplayName] = useState('');
@@ -30,7 +30,20 @@ const Settings = () => {
   const handleSaveUserProfile = async () => {
     setIsUserUpdating(true);
     try {
-      // In a real app, this would update the user profile in Supabase
+      if (!user) {
+        toast({
+          title: 'Error',
+          description: 'User not found. Please log in again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      await updateUserMetadata({
+        full_name: displayName,
+        role: role,
+      });
+
       toast({
         title: 'Profile updated',
         description: 'Your profile has been updated successfully.',

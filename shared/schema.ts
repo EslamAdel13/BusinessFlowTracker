@@ -26,6 +26,8 @@ export const projects = pgTable("projects", {
   owner_id: text("owner_id").notNull(),
   color: text("color").default('#6366f1'),
   createdAt: timestamp("created_at").defaultNow(),
+  start_date: timestamp("start_date"), // Nullable by default
+  end_date: timestamp("end_date"),     // Nullable by default
 });
 
 // Project Members table (for collaboration)
@@ -72,11 +74,16 @@ export const insertUserSchema = createInsertSchema(users).pick({
   avatarUrl: true,
 });
 
-export const insertProjectSchema = createInsertSchema(projects).pick({
+export const insertProjectSchema = createInsertSchema(projects, {
+  start_date: z.string().optional(), // Handled as string from forms, then converted
+  end_date: z.string().optional(),   // Handled as string from forms, then converted
+}).pick({
   name: true,
   description: true,
   owner_id: true,
   color: true,
+  start_date: true,
+  end_date: true,
 });
 
 export const insertPhaseSchema = createInsertSchema(phases).pick({

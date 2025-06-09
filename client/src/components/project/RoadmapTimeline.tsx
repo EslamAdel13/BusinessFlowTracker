@@ -255,9 +255,15 @@ const RoadmapTimeline: FC<RoadmapTimelineProps> = ({
           {/* Project label with fixed action buttons */}
           {/* Column 1: Project Label */}
           <div className="flex items-center justify-between px-4 py-2 border-r sticky left-0 bg-white z-10 row-start-1 h-full">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{background: project.color || '#6366f1'}}/>
-              <span className="text-sm font-medium truncate max-w-[120px]">{project.name}</span>
+            <div> {/* Wrapper for title and dates */}
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full" style={{background: project.color || '#6366f1'}}/>
+                <span className="text-sm font-medium truncate max-w-[120px]">{project.name}</span>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {project.start_date ? dayjs(project.start_date).format('MMM D, YYYY') : 'No start date'} - 
+                {project.end_date ? dayjs(project.end_date).format('MMM D, YYYY') : 'No end date'}
+              </div>
             </div>
             <div className="flex space-x-2">
               <button 

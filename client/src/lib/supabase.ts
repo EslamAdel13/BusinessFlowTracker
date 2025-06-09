@@ -46,6 +46,7 @@ export type SupabaseUser = {
   user_metadata?: {
     full_name?: string;
     avatar_url?: string;
+    role?: string; // Added role
   };
 };
 
@@ -84,4 +85,19 @@ export async function getUserSession() {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
   return data.session;
+}
+
+export async function updateUserMetadataSupabase(metadata: { full_name?: string; role?: string }) {
+  const { error: updateError } = await supabase.auth.updateUser({
+    data: metadata, // Supabase expects the metadata under a 'data' key
+  });
+
+  if (updateError) throw updateError;
+
+  // Re-fetch the user to ensure we get the latest user_metadata
+  const { data: { user: freshUser }, error: fetchError } = await supabase.auth.getUser();
+  
+  if (fetchError) throw fetchError;
+  
+  return freshUser; // Return the freshly fetched user object
 }

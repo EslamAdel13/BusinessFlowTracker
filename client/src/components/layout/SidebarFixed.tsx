@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/lib/auth.tsx";
+import { useAuthStore } from '@/store/authStore'; // Changed to useAuthStore
 import AvatarWithInitials from "@/components/ui/avatar-with-initials";
 import { useCompanySettings } from "@/lib/store";
 import { LayoutGrid, BarChartHorizontal, CheckSquare, BookmarkIcon, InfoIcon, GanttChartSquare } from "lucide-react";
@@ -36,7 +36,7 @@ const navItems = [
 
 export function SidebarFixed() {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const { user } = useAuthStore(); // Changed to useAuthStore
   const { logo } = useCompanySettings();
   
   return (
@@ -82,13 +82,17 @@ export function SidebarFixed() {
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center">
           <AvatarWithInitials 
-            name={user?.fullName || "User"} 
-            imageUrl={user?.avatarUrl}
+            name={user?.user_metadata?.full_name || user?.email || "User"} 
+            imageUrl={user?.user_metadata?.avatar_url}
             className="w-8 h-8"
           />
           <div className="ml-3">
-            <p className="text-sm font-medium text-gray-700">{user?.fullName}</p>
-            <p className="text-xs text-gray-500">{user?.position || "User"}</p>
+            <p className="text-sm font-medium text-gray-700 truncate max-w-[150px]">
+              {user?.user_metadata?.full_name || user?.email}
+            </p>
+            <p className="text-xs text-gray-500 truncate max-w-[150px]">
+              {user?.user_metadata?.role || "User Role"}
+            </p>
           </div>
         </div>
       </div>
